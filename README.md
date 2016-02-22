@@ -6,10 +6,17 @@ To install in Chrome (one time):
 1. Go to [chrome://extensions](chrome://extensions).
 1. **Developer mode** should be checked.
 1. Click **Load unpacked extension...**.
+<<<<<<< HEAD
 1. Select the local directory of the SCION Proxy Manager extension: `ext/proxy_mgr`
 1. Click **Load unpacked extension...** again.
 1. Select the local directory of the SCION Visualization app: `ext/visualization`
 1. Configure proxy settings as needed by clicking on the SCION Proxy Manager extension button to the right of the address window.
+=======
+1. Select the local directory of the SCION Link Feeder Test extension: `chrome/ext`
+1. Click **Load unpacked extension...** again.
+1. Select the local directory of the SCION Visualization app: `chrome/app`
+1. Configure proxy settings as needed by clicking on the SCION Link Feeder Test extension button to the right of the address window.
+>>>>>>> origin/master
 1. Select **Configure your proxy settings manually**, **HTTPHost**: 127.0.0.1, **Port**: 8080, and check **Use the same proxy server for all protocols**, click **Save proxy settings**.
 
 To launch the proxy and knowledge-base (each run):
