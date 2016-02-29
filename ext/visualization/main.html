@@ -1,4 +1,6 @@
-<!doctype html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
 <!--
  * Copyright 2016 ETH Zurich
  *
@@ -14,35 +16,139 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
 -->
-
-<html lang="en">
-<head>
-<meta charset="utf-8" />
+<meta charset="utf-8">
 <style>
-html {
- overflow-y: scroll;
+#divInst {
+ float: left;
+ width: 65%;
+ height: 20%;
+}
+
+#divInstList {
+ overflow: auto;
+}
+
+#divConfig {
+ float: right;
+ width: 30%;
+ height: 20%;
+ border: 1px solid gray;
+ padding: 5px;
+ overflow: auto;
+}
+
+#divMap {
+ float: left;
+ width: 100%;
+ height: 40%;
+}
+
+#interactiveMap {
+ position: relative;
+ width: 100%;
+ height: 300px;
+}
+
+#divStats {
+ float: left;
+ width: 100%;
+ height: 40%;
+}
+
+#divStatsWidget {
+ overflow: auto;
+ height: 300px;
+}
+
+table {
+ border-collapse: collapse;
+ border: 1px solid black;
+}
+
+th {
+ text-align: left;
+ border: 1px solid black;
+}
+
+td:first-child {
+ text-align: left;
+ font-weight: bold;
+}
+
+td {
+ text-align: right;
+ padding-right: 5px;
+ padding-left: 5px;
+}
+
+tr:nth-child(even) {
+ background-color: #66CCFF
+}
+
+.datamaps-legend dt, .datamaps-legend dd {
+ float: none;
+}
+
+.datamaps-legend {
+ right: -50px;
+ top: 0;
 }
 </style>
 <link rel="stylesheet" href="css/jquery-ui.min.css">
-<script src="js/d3.min.js"></script>
 <script src="js/jquery-2.2.0.min.js"></script>
 <script src="js/jquery-ui.min.js"></script>
-<script src='./networking.js'></script>
-<script src='./main.js'></script>
+<script src="js/d3.min.js"></script>
+<script src="js/topojson.min.js"></script>
+<script src="js/datamaps.world.min.js"></script>
+<script src="data/map-data.js"></script>
+<script src="./networking.js"></script>
+<script src="./main.js"></script>
 </head>
 <body>
- <div>
-  <input type="button" id="connect" value="Connect" /> <input
-   type="button" id="list" value="List" /> <input type="button"
-   id="lookup" value="Lookup" /> <br> For testing, run
-  <code>node/nodejs udp-server-test.js</code>
-  in the
-  <code>test</code>
-  directory
+ <div id="divBody">
+  <div id="divInst">
+   <span style="font-weight: bold;">Instructions:</span><br>
+   <div id="divInstList">
+    <ul>
+     <li><span style="font-weight: bold;">Map Scroll:</span> Click
+      and drag the map to the desired position.</li>
+     <li><span style="font-weight: bold;">Map Zoom:</span> Position
+      cursor to desired zoom point and use a scroll wheel to zoom.</li>
+     <li><span style="font-weight: bold;">Path Select:</span> Click
+      the desired URL below and change the Path radio button.</li>
+    </ul>
+   </div>
+  </div>
+  <div id="divConfig">
+   <span style="font-weight: bold;">Configuration:</span><br>
+   <p></p>
+   <div>
+    ISD Constraint: <select id="selectIsd">
+     <option>None</option>
+    </select>
+   </div>
+   <p></p>
+   <div>
+    <input id="connect" value="Reconnect UDP" type="button"> <input
+     id="list" value="Update List" type="button">
+   </div>
+  </div>
+  <div id="divMap">
+   <span style="font-weight: bold;">Location Map:</span><br>
+   <div id="interactiveMap"></div>
+  </div>
+  <div id="divStats">
+   <span style="font-weight: bold;">Socket Proxy Data:</span><br>
+   <div id="divResume" style="display: none;">
+    <p>Now, after setting the ISD Constraint, please refresh your
+     browser pages to allow packets to traverse the new network
+     configuration. Then, close this window and reopen it to see the new
+     proxy results.</p>
+    <input id="resume" value="Resume Proxy Stats" type="button"
+     style="display: none;">
+   </div>
+   <div id="divStatsWidget" class="urlStatsWidget"></div>
+  </div>
  </div>
- <p>
-  <text id='url'></text>
- </p>
- <div class="urlStatsWidget"></div>
 </body>
 </html>

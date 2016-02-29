@@ -18,8 +18,8 @@ To launch the proxy and knowledge-base (each run):
 1. Be sure the socket library is built: `./scion.sh sock_bld`
 1. Run SCION: `./scion.sh run`
 1. Start 4 processes in separate terminals:
-1. `./scion.sh sock_ser`
-1. `./scion.sh sock_cli`
+1. `./scion.sh sock_ser 1 18`
+1. `./scion.sh sock_cli 1 17`
 1. `endhost/scion_proxy.py -f -s -k`
 1. `endhost/scion_proxy.py -p 9090 -s -k`
 1. Launch the SCION Visualization app by opening a new tab and clicking on the Apps button in the top left of the window. This can also be done by going to [chrome://apps](chrome://apps).
