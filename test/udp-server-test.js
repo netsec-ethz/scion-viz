@@ -31,19 +31,6 @@ var server = dgram.createSocket('udp4');
 var threshold = 0.99;
 var UDP_PORT = 7777;
 
-// sample test data
-var reqs = [ [ "CONNECT", "self-repair.mozilla.org:443" ],
-        [ "CONNECT", "collector.githubapp.com:443" ],
-        [ "CONNECT", "www.google-analytics.com:443" ],
-        [ "POST", "http://clients1.google.com/ocsp" ],
-        [ "CONNECT", "api.github.com:443" ],
-        [ "CONNECT", "geo.mozilla.org:443" ],
-        [ "CONNECT", "avatars2.githubusercontent.com:443" ],
-        [ "CONNECT", "live.github.com:443" ],
-        [ "POST", "http://ocsp.digicert.com/" ],
-        [ "CONNECT", "avatars0.githubusercontent.com:443" ],
-        [ "CONNECT", "github.com:443" ] ];
-
 server.on("listening", function() {
     var address = server.address();
     console.log("Listening on " + address.address);
@@ -71,39 +58,36 @@ server.on("message", function(message, rinfo) {
 
     // parse the json
     var rc = JSON.parse(jData);
-    var jData = null;
+    var jData = '';
+    var dataRoot = process.cwd() + '/test/data/';
 
     // add dummy parameters before echoing back
     if (rc.command == 'LOOKUP') {
-        var u = {};
-        var paths = getRandomInt(5, 10);
-        u.sent_packets = getRandomIntArray(0, 100, paths);
-        u.received_packets = getRandomIntArray(0, 100, paths);
-        u.acked_packets = getRandomIntArray(0, 100, paths);
-        u.rtts = getRandomIntArray(10000, 99999, paths);
-        u.loss_rates = getRandomDoubleArray(paths);
-        u.if_lists = [];
-        u.if_counts = [];
-        for (c = 0; c < paths; c++) {
-            u.if_counts.push(getRandomInt(10, 16));
-            var col = [];
-            for (r = 0; r < u.if_counts[c]; r++) {
-                var n = {};
-                n.IFID = getRandomInt(1, 5);
-                n.ISD = getRandomInt(1, 2);
-                n.AS = getRandomInt(10, 25);
-                col.push(n);
-            }
-            u.if_lists.push(col);
+        switch (getRandomInt(0, 3)) {
+        default:
+        case 0:
+            jData = loadTestData(dataRoot + 'lookup.json');
+            break;
+        case 1:
+            jData = loadTestData(dataRoot + 'lookup-isd1.json');
+            break;
+        case 2:
+            jData = loadTestData(dataRoot + 'lookup-isd2.json');
+            break;
         }
-        jData = JSON.stringify(u);
-
     } else if (rc.command == 'LIST') {
+        var reqs = JSON.parse(loadTestData(dataRoot + 'list.json'));
         var lu = [];
         lu.push(reqs[getRandomInt(0, 10)]);
         lu.push(reqs[getRandomInt(0, 10)]);
         lu.push(reqs[getRandomInt(0, 10)]);
         jData = JSON.stringify(lu);
+    } else if (rc.command == 'STAY_ISD') {
+        jData = loadTestData(dataRoot + 'stay_isd.json');
+    } else if (rc.command == 'TOPO') {
+        jData = loadTestData(dataRoot + 'topo.json');
+    } else if (rc.command == 'LOCATIONS') {
+        jData = loadTestData(dataRoot + 'locations.json');
     }
 
     var buf = new Buffer(4);
@@ -125,6 +109,37 @@ server.on("close", function() {
 
 var port = process.argv[2];
 server.bind(port ? parseInt(port) : UDP_PORT);
+
+function createRandomLookup() {
+    var u = {};
+    var paths = getRandomInt(5, 10);
+    u.sent_packets = getRandomIntArray(0, 100, paths);
+    u.received_packets = getRandomIntArray(0, 100, paths);
+    u.acked_packets = getRandomIntArray(0, 100, paths);
+    u.rtts = getRandomIntArray(10000, 99999, paths);
+    u.loss_rates = getRandomDoubleArray(paths);
+    u.if_lists = [];
+    u.if_counts = [];
+    for (c = 0; c < paths; c++) {
+        u.if_counts.push(getRandomInt(10, 16));
+        var col = [];
+        for (r = 0; r < u.if_counts[c]; r++) {
+            var n = {};
+            n.IFID = getRandomInt(1, 5);
+            n.ISD = getRandomInt(1, 2);
+            n.AS = getRandomInt(10, 25);
+            col.push(n);
+        }
+        u.if_lists.push(col);
+    }
+    return JSON.stringify(u);
+}
+
+function loadTestData(filePath) {
+    var fs = require("fs");
+    var data = fs.readFileSync(filePath);
+    return data.toString();
+}
 
 function getRandomInt(min, max) {
     return Math.floor(Math.random() * (max - min)) + min;
