@@ -32,7 +32,7 @@ var threshold = 0.99;
 var UDP_PORT = 7777;
 
 var args = process.argv.slice(2);
-var test = (args.length > 0) ? args[0] : "d";
+var test = (args.length > 0) ? args[0] : "w";
 console.log(args + ',' + test);
 
 server.on("listening", function() {
@@ -85,6 +85,8 @@ server.on("message", function(message, rinfo) {
         jData = JSON.stringify(lu);
     } else if (rc.command == 'ISD_WHITELIST') {
         jData = loadTestData(dataRoot + 'isd_whitelist.json');
+    } else if (rc.command == 'GET_ISD_WHITELIST') {
+        jData = loadTestData(dataRoot + 'get_isd_whitelist-' + test + '.json');
     } else if (rc.command == 'TOPO') {
         jData = loadTestData(dataRoot + 'topo-' + test + '.json');
     } else if (rc.command == 'LOCATIONS') {

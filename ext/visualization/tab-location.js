@@ -124,41 +124,6 @@ function getMapProjection(element) {
     };
 }
 
-function updateMapIsdAsChoropleth(res) {
-    // build list of ISD-AS used in these paths
-    var isdAs = [];
-    var isd = {};
-    for (var i = 0; i < res.if_lists.length; i++) {
-        for (var ifNum = 0; ifNum < res.if_lists[i].length; ifNum++) {
-            var ifRes = res.if_lists[i][ifNum];
-            isdAs.push(ifRes.ISD + '-' + ifRes.AS);
-            // Note the ISDs in-use
-            isd[ifRes.ISD] = true;
-        }
-    }
-    var countries = {};
-    var isdAs;
-    for (isdAs in self.jLoc) {
-        var ifNum = isdAs.split('-');
-        var id = "ckbIsd" + ifNum[0];
-        if (isd[ifNum[0]]) {
-            if (self.jLoc.hasOwnProperty(isdAs)) {
-                var iso2 = self.jLoc[isdAs];
-                // find 3 loc code base don 2loc code
-                if (iso3.hasOwnProperty(iso2)) {
-                    countries[iso3[iso2]] = {
-                        fillKey : "ISD Selected",
-                    };
-                }
-            }
-            document.getElementById(id).checked = true;
-        } else {
-            document.getElementById(id).checked = false;
-        }
-    }
-    return countries;
-}
-
 function updateMapIsdAsArc(res, path) {
     var routes = [];
     if (path < 0) {
@@ -303,5 +268,5 @@ function getLatLngBoundedCenter(latLngInDegr) {
     // scale, use least scale to show most map
     var scale = latScale < lngScale ? latScale : lngScale;
 
-    return ([ (lat), (lng), (scale) ]);
+    return [ lat, lng, scale ];
 }
