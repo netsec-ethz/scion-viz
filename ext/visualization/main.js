@@ -15,13 +15,6 @@
  */
 
 var C_STAT_BKGN = '99CCFF';
-var C_MAP_COUNDEF = '#EEEEEE';
-var C_MAP_COUN = '#3366CC';
-var C_MAP_COUN_SEL = '#CCCCCC';
-var C_MAP_PATH = '#00BB00';
-var C_MAP_ISD1 = '#0099FF';
-var C_MAP_ISD2 = '#FF9900';
-var C_MAP_ISD_BRD = '#FFFFFF';
 var MS_SETUP_INTERVAL = 1000;
 var MS_LIST_INTERVAL = 5000;
 var UDP_ADDR = "127.0.0.1:7777";
@@ -31,14 +24,11 @@ var kBaseIndex = 0;
 var kBaseIndexSel = 0;
 var kBaseUrlSel = null;
 var backgroundJobs = [];
-var map;
 
-// TODO (mwfarb): at some point store the window size in a recoverable setting
-// TODO (mwfarb): show topology, links widening, perhaps as num, pct, width
+// TODO (mwfarb): expand the accordion scroll region to match window
+// TODO (mwfarb): correct the zoom first then path race condition
 
 window.onload = function() {
-    // render blank map on load
-    initMap();
 }
 
 // D3 simple table...
@@ -171,14 +161,13 @@ var newEchoClient = function(address) {
 };
 
 function refreshSocketData() {
-    // TODO (mwfarb): load configuration like ISD Constraint from socket
-
     if (self.jTopo == null) {
         requestTopology();
     }
     if (self.jTopo != null && self.jLoc == null) {
         // locations should load only after topology has arrived
         requestLocations();
+        requestGetIsdWhitelist();
     }
     if (self.jLoc != null) {
         requestListUpdate();
@@ -205,20 +194,28 @@ var attachSend = function(client) {
     };
 };
 
-function requestStayIsd(isd) {
+function requestSetIsdWhitelist(isds) {
     var req = {};
     req.version = PARA_VER;
-    req.command = 'STAY_ISD';
-    req.isd = parseInt(isd);
-    if (isd == 'None' || req.isd == NaN) {
+    req.command = 'ISD_WHITELIST';
+    req.isds = isds;
+    if (isds == 'None' || req.isds == NaN) {
         return;
     }
     var jSend = JSON.stringify(req);
     sendRequest(jSend);
 
-    map.updateChoropleth(updateMapIsdSelChoropleth(isd), {
+    map.updateChoropleth(updateMapIsdSelChoropleth(isds), {
         reset : true
     });
+}
+
+function requestGetIsdWhitelist() {
+    var req = {};
+    req.version = PARA_VER;
+    req.command = 'GET_ISD_WHITELIST';
+    var jSend = JSON.stringify(req);
+    sendRequest(jSend);
 }
 
 function requestListUpdate() {
@@ -271,12 +268,15 @@ function updateUiUdpRecv(ab) {
     try {
         var res = JSON.parse(jData);
         if (Array.isArray(res)) {
-            if (res[0].hasOwnProperty("a") && res[0].hasOwnProperty("b")
+            if (res.every(isNumber) || res.length == 0) {
+                // isd get whitelist
+                handleRespGetIsdWhitelist(res);
+            } else if (res[0].hasOwnProperty("a") && res[0].hasOwnProperty("b")
                     && res[0].hasOwnProperty("ltype")) {
-                // topo
+                // topology
                 handleRespTopology(res);
             } else {
-                // list
+                // url list
                 handleRespList(res);
             }
         } else {
@@ -284,8 +284,8 @@ function updateUiUdpRecv(ab) {
                 // lookup
                 handleRespLookup(res);
             } else if (res.hasOwnProperty("STATUS")) {
-                // stay_isd
-                handleRespStayIsd(res);
+                // isd set whitelist
+                handleRespSetIsdWhitelist(res);
             } else {
                 // locations
                 handleRespLocations(res);
@@ -304,42 +304,70 @@ function updateUiUdpRecv(ab) {
 
 function handleRespTopology(res) {
     // store topology locally for later rendering
-    self.jTopo = res;
-    // parse topology for valid ISDs
-    var select = document.getElementById("selectIsd");
-    var isds = [];
-    for (var l = 0; l < self.jTopo.length; l++) {
-        var iface = self.jTopo[l].a.split("-");
-        if (isds.indexOf(iface[0]) === -1) {
-            isds.push(iface[0]);
+    if (typeof self.jTopo === "undefined") {
+        self.jTopo = res;
+
+        // parse topology for valid ISDs
+        self.isds = [];
+        for (var l = 0; l < self.jTopo.length; l++) {
+            var iface = self.jTopo[l].a.split("-");
+            var isd = parseInt(iface[0]);
+            if (self.isds.indexOf(isd) === -1) {
+                self.isds.push(isd);
+            }
         }
-    }
-    isds.sort();
-    isds.unshift('None');
-    // populate ISD list
-    select.options.length = 0;
-    for (var i = 0; i < isds.length; i++) {
-        var opt = isds[i];
-        var el = document.createElement("option");
-        el.textContent = opt;
-        el.value = opt;
-        select.appendChild(el);
+        self.isds.sort();
+
+        // populate ISD checkbox list
+        var cbAllIsd = document.getElementById("ckbCheckAllIsd");
+        cbAllIsd.disabled = true;
+        var checkBoxesIsd = document.getElementById("checkBoxesIsd");
+        if (checkBoxesIsd.children.length == 0) {
+            for (var i = 0; i < self.isds.length; i++) {
+                var isd = self.isds[i];
+                var cb = document.createElement("input");
+                cb.type = "checkbox";
+                cb.className = "checkBoxClass";
+                cb.name = "cbIsd";
+                cb.id = "ckbIsd" + isd;
+                cb.value = isd;
+                cb.disabled = true; // disable until src and dst known
+                cb.onchange = function() {
+                    handleIsdWhitelistCheckedChange();
+                };
+
+                var label = document.createElement('label')
+                label.htmlFor = "id";
+                label.appendChild(document.createTextNode(isd));
+
+                checkBoxesIsd.appendChild(cb);
+                checkBoxesIsd.appendChild(label);
+            }
+        }
+
+        var width = 800, height = 800;
+        drawTopology(res, width, height);
     }
 }
 
 function handleRespLocations(res) {
     // store locations locally for later rendering
-    self.jLoc = res;
+    if (typeof self.jLoc === "undefined") {
+        self.jLoc = res;
 
-    // set interval to be more relaxed
-    clearInterval(self.listIntervalId);
-    refreshSocketData();
-    self.listIntervalId = setInterval(function() {
+        // set interval to be more relaxed
+        clearInterval(self.listIntervalId);
         refreshSocketData();
-    }, MS_LIST_INTERVAL);
+        self.listIntervalId = setInterval(function() {
+            refreshSocketData();
+        }, MS_LIST_INTERVAL);
 
-    // Show AS and ISD numbers on the map on the countries
-    map.bubbles(updateMapIsdAsBubbles());
+        // render blank map on load
+        initMap(getIsdFillColors(self.isds));
+
+        // Show AS and ISD numbers on the map on the countries
+        map.bubbles(updateMapIsdAsBubbles());
+    }
 }
 
 function handleRespList(res) {
@@ -370,42 +398,56 @@ function handleRespLookup(res) {
     renderStatsHeader(kBaseIndexSel, rStat("All Paths", head));
     renderStatsBody(kBaseIndexSel);
 
-    // when accordion opens draw the map, countries
-    map.updateChoropleth(updateMapIsdAsChoropleth(res), {
-        reset : true
-    });
-
+    // Update bubble with src and dst now known
     var src = res.if_lists[0][0];
     var dst = res.if_lists[0][res.if_lists[0].length - 1];
     map.bubbles(updateMapIsdAsBubbles(src.ISD + "-" + src.AS, dst.ISD + "-"
             + dst.AS));
 
+    // gray out only src and dest checkboxes
+    var isAnyEnabled = false;
+    var cbLen = document.getElementsByName('cbIsd').length;
+    for (var i = 0; i < cbLen; i++) {
+        var cb = document.getElementsByName('cbIsd')[i];
+        var id = "ckbIsd" + cb.value;
+        if (cb.value == src.ISD || cb.value == dst.ISD) {
+            document.getElementById(id).disabled = true;
+            document.getElementById(id).checked = true;
+        } else {
+            // re enable when src and dst are known
+            document.getElementById(id).disabled = false;
+            isAnyEnabled = true;
+        }
+    }
+    // if all ISDs grey, no change wlist cmd
+    var cbAllIsd = document.getElementById("ckbCheckAllIsd");
+    cbAllIsd.disabled = !isAnyEnabled;
+
     // show the links between the countries on the map, default to last path
     document.getElementsByName('radioPath')[res.if_lists.length].checked = true;
-    map.arc(updateMapIsdAsArc(res, res.if_lists.length - 1));
+    handlePathSelection(res, res.if_lists.length - 1);
 
     // Allow user selection of path in the accordion
     var rLen = document.getElementsByName('radioPath').length;
     for (var i = 0; i < rLen; i++) {
         document.getElementsByName('radioPath')[i].onclick = function() {
-            map.arc(updateMapIsdAsArc(res, parseInt(this.value)));
+            handlePathSelection(res, parseInt(this.value));
         }
     }
 }
 
-function handleRespStayIsd(res) {
+function handlePathSelection(res, path) {
+    map.arc(updateMapIsdAsArc(res, path));
+
+    // 160315 yskim added
+    restorePath();
+    drawPath(res, path);
+}
+
+function handleRespSetIsdWhitelist(res) {
     // TODO (mwfarb): handle error case when setting ISD fails
 
     if (res.STATUS == 'OK') {
-        var select = document.getElementById("selectIsd")
-        for (var i = 0; i < select.length; i++) {
-            // TODO (mwfarb): allow None to remain in list when all-ISDs socket
-            // method is available
-            if (select.options[i].value == 'None') {
-                select.remove(i);
-            }
-        }
-
         // on set ISD make sure the clean accordion, stop list
         clearInterval(self.listIntervalId);
         document.getElementById("divStatsWidget").style.display = "none";
@@ -413,6 +455,53 @@ function handleRespStayIsd(res) {
         map.arc([]);
         map.bubbles(updateMapIsdAsBubbles());
     }
+}
+
+function handleRespGetIsdWhitelist(res) {
+    if (res.length == 0) {
+        // empty list means all in use
+        var isds = self.isds;
+    } else {
+        var isds = res;
+    }
+    // set checkboxes
+    for (var i = 0; i < self.isds.length; i++) {
+        var isd = self.isds[i];
+        var id = "ckbIsd" + isd;
+        if (isds.indexOf(isd) > -1) {
+            document.getElementById(id).checked = true;
+        } else {
+            document.getElementById(id).checked = false;
+        }
+    }
+    if (isds.length == self.isds) {
+        // when all isds checked, must sure 'all' is as well
+        var cbAllIsd = document.getElementById("ckbCheckAllIsd");
+        cbAllIsd.checked = true;
+    }
+    // change ISDs on map
+    map.updateChoropleth(updateMapIsdSelChoropleth(isds), {
+        reset : true
+    });
+}
+
+function handleIsdWhitelistCheckedChange() {
+    var cbLen = document.getElementsByName('cbIsd').length;
+    var isds = [];
+    for (var i = 0; i < cbLen; i++) {
+        var cb = document.getElementsByName('cbIsd')[i];
+        if (cb.checked) {
+            isds.push(parseInt(cb.value));
+        }
+    }
+    if (isds.length == cbLen) {
+        // when all are checked send clear whitelist cmd
+        isds = [];
+        // when all isds checked, must sure 'all' is as well
+        var cbAllIsd = document.getElementById("ckbCheckAllIsd");
+        cbAllIsd.checked = true;
+    }
+    requestSetIsdWhitelist(isds);
 }
 
 function getInterfaceListRows(res) {
@@ -498,199 +587,8 @@ function fromBytesUInt32(ab) {
     return view.getInt32(0, false);
 }
 
-// Datamaps...
-
-function initMap() {
-    map = new Datamap({
-        scope : 'world',
-        element : document.getElementById("interactiveMap"),
-        // zoom to Eurasia
-        setProjection : getMapProjection(),
-        fills : {
-            defaultFill : C_MAP_COUNDEF,
-            "ISD Selected" : C_MAP_COUN_SEL,
-            "ISD-1" : C_MAP_ISD1,
-            "ISD-2" : C_MAP_ISD2,
-            "Route Path" : C_MAP_PATH,
-        },
-        bubblesConfig : {
-            borderWidth : 1,
-            borderOpacity : 1,
-            borderColor : C_MAP_ISD_BRD,
-            popupOnHover : true,
-            radius : null,
-            popupTemplate : getBubblePopupTemplate(),
-            fillOpacity : 0.75,
-            animate : true,
-            highlightOnHover : true,
-            exitDelay : 100,
-        },
-        arcConfig : {
-            arcSharpness : 0.75,
-            animationSpeed : 100,
-            strokeColor : C_MAP_PATH,
-        },
-        done : getFinishDrawAction()
-    });
-    map.legend({
-        defaultFillName : 'No ISD:'
-    });
-}
-
-function getFinishDrawAction() {
-    return function(datamap) {
-        datamap.svg.call(d3.behavior.zoom().on("zoom", redraw));
-        function redraw() {
-            var prefix = '-webkit-transform' in document.body.style ? '-webkit-'
-                    : '-moz-transform' in document.body.style ? '-moz-'
-                            : '-ms-transform' in document.body.style ? '-ms-'
-                                    : '';
-            var x = d3.event.translate[0];
-            var y = d3.event.translate[1];
-            datamap.svg.selectAll("g").style(
-                    prefix + 'transform',
-                    'translate(' + x + 'px, ' + y + 'px) scale('
-                            + (d3.event.scale) + ')');
-        }
-    };
-}
-
-function getBubblePopupTemplate() {
-    return function(geography, data) {
-        return '<div class="hoverinfo"><strong>' + data.name
-                + '</strong></div>';
-    };
-}
-
-function getMapProjection(element) {
-    return function(element) {
-        var projection = d3.geo.equirectangular().center([ 60, 35 ]).rotate(
-                [ 0, 0 ]).scale(250).translate(
-                [ element.offsetWidth / 2, element.offsetHeight / 2 ]);
-        var path = d3.geo.path().projection(projection);
-        return {
-            path : path,
-            projection : projection
-        };
-    };
-}
-
-function updateMapIsdAsChoropleth(res) {
-    // build list of ISD-AS used in these paths
-    var isdAs = [];
-    var isd = {};
-    for (var i = 0; i < res.if_lists.length; i++) {
-        for (var ifNum = 0; ifNum < res.if_lists[i].length; ifNum++) {
-            var ifRes = res.if_lists[i][ifNum];
-            isdAs.push(ifRes.ISD + '-' + ifRes.AS);
-            isd[ifRes.ISD] = true;
-        }
-    }
-    var countries = {};
-    var isdAs;
-    for (isdAs in self.jLoc) {
-        var ifNum = isdAs.split('-');
-        if (isd[ifNum[0]]) {
-            if (self.jLoc.hasOwnProperty(isdAs)) {
-                var iso2 = self.jLoc[isdAs];
-                // find 3 loc code base don 2loc code
-                if (iso3.hasOwnProperty(iso2)) {
-                    countries[iso3[iso2]] = {
-                        fillKey : "ISD Selected",
-                    };
-                }
-            }
-        }
-    }
-    return countries;
-}
-
-function updateMapIsdAsArc(res, path) {
-    var routes = [];
-    if (path < 0) {
-        for (var i = 0; i < res.if_lists.length; i++) {
-            routes.push(i);
-        }
-    } else {
-        routes.push(path);
-    }
-    var arcs = [];
-    for (var p = 0; p < routes.length; p++) {
-        var pNum = parseInt(routes[p]);
-        for (var ifNum = 0; ifNum < (res.if_lists[pNum].length - 1); ifNum++) {
-            var ifRes = res.if_lists[pNum][ifNum];
-            var ifResNext = res.if_lists[pNum][ifNum + 1];
-            var iso2 = self.jLoc[ifRes.ISD + '-' + ifRes.AS];
-            var iso2Next = self.jLoc[ifResNext.ISD + '-' + ifResNext.AS];
-            if (iso2 == iso2Next) {
-                // skip internal routing when making arcs
-                continue;
-            }
-            // find lat long
-            var arc = {
-                origin : {
-                    latitude : latlong[iso2][0],
-                    longitude : latlong[iso2][1]
-                },
-                destination : {
-                    latitude : latlong[iso2Next][0],
-                    longitude : latlong[iso2Next][1]
-                }
-            };
-            arcs.push(arc);
-        }
-    }
-    return arcs;
-}
-
-function updateMapIsdAsBubbles(src, dst) {
-    var bubbles = [];
-    var isdAs;
-    for (isdAs in self.jLoc) {
-        var ifNum = isdAs.split('-');
-        if (self.jLoc.hasOwnProperty(isdAs)) {
-            if (src != null && isdAs == src) {
-                label = " (source)";
-                rad = 8;
-            } else if (dst != null && isdAs == dst) {
-                label = " (destination)";
-                rad = 8;
-            } else {
-                label = '';
-                rad = 4;
-            }
-            var bubble = {
-                name : isdAs + label,
-                latitude : latlong[self.jLoc[isdAs]][0],
-                longitude : latlong[self.jLoc[isdAs]][1],
-                radius : rad,
-                fillKey : (ifNum[0] == "1" ? "ISD-1" : "ISD-2"),
-            };
-            bubbles.push(bubble);
-        }
-    }
-    return bubbles;
-}
-
-function updateMapIsdSelChoropleth(isd_sel_str) {
-    // outline selcted ISDs
-    var countries = {};
-    var isdAs;
-    for (isdAs in self.jLoc) {
-        var ifNum = isdAs.split('-');
-        if (isd_sel_str == "0" || isd_sel_str == ifNum[0]) {
-            if (self.jLoc.hasOwnProperty(isdAs)) {
-                var iso2 = self.jLoc[isdAs];
-                // find 3 loc code base don 2loc code
-                if (iso3.hasOwnProperty(iso2)) {
-                    countries[iso3[iso2]] = {
-                        fillKey : "ISD Selected",
-                    };
-                }
-            }
-        }
-    }
-    return countries;
+function isNumber(element, index, array) {
+    return isFinite(element);
 }
 
 // JQuery...
@@ -723,9 +621,6 @@ $(function() {
             }
         } else {
             // when closing accordion clean the map
-            map.updateChoropleth(null, {
-                reset : true
-            });
             map.arc([]);
             map.bubbles(updateMapIsdAsBubbles());
         }
@@ -739,9 +634,56 @@ $(function() {
 
     // TODO (mwfarb): change color of list items when disabled
 
-    // initialize ISD selection box
-    $('#selectIsd').change(function() {
-        var isd = $(this).val();
-        requestStayIsd(isd);
+    // initialize ISD checkboxes
+    $('#ckbCheckAllIsd').change(function() {
+        handleIsdWhitelistCheckedChange();
     });
+
 });
+
+// wait for DOM load
+$(document).ready(
+        function() {
+            // check/uncheck all ISDs that are enabled
+            $("#ckbCheckAllIsd").click(
+                    function() {
+                        $(".checkBoxClass:not(:disabled)").prop('checked',
+                                $(this).prop('checked'));
+                    });
+
+            // When location.hash matches one of the links, use
+            // that as the active tab. When no match is found, use
+            // the first link as the initial active tab.
+            $('ul.tabs').each(
+                    function() {
+                        var $active, $content, $links = $(this).find('a');
+
+                        $active = $($links.filter('[href="' + location.hash
+                                + '"]')[0]
+                                || $links[0]);
+                        $active.addClass('active');
+                        $content = $($active[0].hash);
+
+                        // hide inactive content
+                        $links.not($active).each(function() {
+                            $(this.hash).hide();
+                        });
+
+                        $(this).on('click', 'a', function(e) {
+                            // deactivate old tab
+                            $active.removeClass('active');
+                            $content.hide();
+
+                            // update
+                            $active = $(this);
+                            $content = $(this.hash);
+
+                            // make active
+                            $active.addClass('active');
+                            $content.show();
+
+                            // ignore default click
+                            e.preventDefault();
+                        });
+                    });
+        });

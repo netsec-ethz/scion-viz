@@ -31,6 +31,10 @@ var server = dgram.createSocket('udp4');
 var threshold = 0.99;
 var UDP_PORT = 7777;
 
+var args = process.argv.slice(2);
+var test = (args.length > 0) ? args[0] : "w";
+console.log(args + ',' + test);
+
 server.on("listening", function() {
     var address = server.address();
     console.log("Listening on " + address.address);
@@ -63,16 +67,13 @@ server.on("message", function(message, rinfo) {
 
     // add dummy parameters before echoing back
     if (rc.command == 'LOOKUP') {
-        switch (getRandomInt(0, 3)) {
+        switch (getRandomInt(0, 2)) {
         default:
         case 0:
-            jData = loadTestData(dataRoot + 'lookup.json');
+            jData = loadTestData(dataRoot + 'lookup-' + test + '.json');
             break;
         case 1:
-            jData = loadTestData(dataRoot + 'lookup-isd1.json');
-            break;
-        case 2:
-            jData = loadTestData(dataRoot + 'lookup-isd2.json');
+            jData = loadTestData(dataRoot + 'lookup-' + test + '-isd1.json');
             break;
         }
     } else if (rc.command == 'LIST') {
@@ -82,12 +83,14 @@ server.on("message", function(message, rinfo) {
         lu.push(reqs[getRandomInt(0, 10)]);
         lu.push(reqs[getRandomInt(0, 10)]);
         jData = JSON.stringify(lu);
-    } else if (rc.command == 'STAY_ISD') {
-        jData = loadTestData(dataRoot + 'stay_isd.json');
+    } else if (rc.command == 'ISD_WHITELIST') {
+        jData = loadTestData(dataRoot + 'isd_whitelist.json');
+    } else if (rc.command == 'GET_ISD_WHITELIST') {
+        jData = loadTestData(dataRoot + 'get_isd_whitelist-' + test + '.json');
     } else if (rc.command == 'TOPO') {
-        jData = loadTestData(dataRoot + 'topo.json');
+        jData = loadTestData(dataRoot + 'topo-' + test + '.json');
     } else if (rc.command == 'LOCATIONS') {
-        jData = loadTestData(dataRoot + 'locations.json');
+        jData = loadTestData(dataRoot + 'locations-' + test + '.json');
     }
 
     var buf = new Buffer(4);

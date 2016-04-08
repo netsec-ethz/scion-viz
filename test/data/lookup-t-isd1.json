@@ -1,0 +1,1 @@
+{"if_counts" : [ 3 ],"rtts" : [ 112 ],"sent_packets" : [ 8 ],"if_lists" : [ [ { "ISD" : 1, "IFID" : 1, "AS" : 12}, { "ISD" : 1, "IFID" : 2, "AS" : 11}, { "ISD" : 1, "IFID" : 3, "AS" : 13} ] ],"loss_rates" : [ 0.0 ],"received_packets" : [ 7 ],"acked_packets" : [ 7 ]}
