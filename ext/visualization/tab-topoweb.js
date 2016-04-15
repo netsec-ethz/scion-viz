@@ -25,6 +25,7 @@ var core_as_nodes = new Array();
 
 var highlighted_path_ID = [];
 var graph;
+var svg;
 
 function lookupLinks(source, target) {
     var res = -1;
@@ -187,7 +188,14 @@ function restorePath() {
     highlighted_path_ID = [];
 }
 
-function drawTopology(original_json_data, width, height ) {
+function drawTopology(original_json_data, width, height) {
+    nodes = new Array();
+    linksSource = new Array();
+    linksTarget = new Array();
+    linksValue = new Array();
+    core_as_nodes = new Array();
+    highlighted_path_ID = [];
+
     // make node structure first
     for (var i = 0; i < original_json_data.length; i++) {
         // read a and b, and put them into the Array node
@@ -224,8 +232,11 @@ function drawTopology(original_json_data, width, height ) {
             [ width, height ]).linkDistance(40).charge(-1700).on("tick", tick)
             .start();
 
-    var svg = d3.select("#TopologyGraph").append("svg").attr("width", width)
-            .attr("height", height);
+    if (typeof svg !== "undefined") {
+        svg.remove();
+    }
+    svg = d3.select("#TopologyGraph").append("svg").attr("width", width).attr(
+            "height", height);
 
     // Per-type markers, as they don't inherit styles.
     svg.append("defs").selectAll("marker")
@@ -266,7 +277,7 @@ function drawTopology(original_json_data, width, height ) {
             .attr("id", function(d) {
                 return "detailed_" + d.name;
             }).attr("y", ".31em").text(function(d) {
-                return (d.AETYPE + "\n - detailed information");
+                return (d.AETYPE);
             });
 
     // Use elliptical arc path segments to doubly-encode directionality.

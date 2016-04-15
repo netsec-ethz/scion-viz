@@ -17,7 +17,8 @@
 var C_MAP_COUNDEF = '#EEEEEE';
 var C_MAP_COUN = '#3366CC';
 var C_MAP_COUN_SEL = '#CCCCCC';
-var C_MAP_PATH = '#00BB00';
+var C_MAP_PATH_TOPO = '#999999';
+var C_MAP_PATH_ACTIVE = '#FF0000';
 var C_MAP_ISD_BRD = '#FFFFFF';
 
 var C_MAP_ISDS = [ '#0099FF', '#FF9900', '#FF0099', '#9900FF', '#00FF99',
@@ -29,7 +30,7 @@ function initMap(fillColors) {
     map = new Datamap({
         scope : 'world',
         element : document.getElementById("interactiveMap"),
-        // zoom to Eurasia
+        responsive : true,
         setProjection : getMapProjection(),
         fills : fillColors,
         bubblesConfig : {
@@ -47,7 +48,7 @@ function initMap(fillColors) {
         arcConfig : {
             arcSharpness : 0.75,
             animationSpeed : 100,
-            strokeColor : C_MAP_PATH,
+            strokeColor : C_MAP_PATH_TOPO,
         },
         done : getFinishDrawAction()
     });
@@ -60,7 +61,8 @@ function getIsdFillColors(isds) {
     var fills = {};
     fills.defaultFill = C_MAP_COUNDEF;
     fills["ISD Selected"] = C_MAP_COUN_SEL;
-    fills["Route Path"] = C_MAP_PATH;
+    fills["Route Selected"] = C_MAP_PATH_ACTIVE;
+    fills["Route Path"] = C_MAP_PATH_TOPO;
     for (var i = 0; i < isds.length; i++) {
         fills["ISD-" + isds[i]] = C_MAP_ISDS[i];
     }
@@ -115,7 +117,7 @@ function getMapProjection(element) {
         console.log('center coordinates/scale', proj);
         var projection = d3.geo.equirectangular().center([ proj[1], proj[0] ])
                 .rotate([ 0, 0 ]).scale(proj[2]).translate(
-                        [ element.offsetWidth / 2, element.offsetHeight / 2 ]);
+                        [ element.offsetWidth / 2, element.offsetHeight / 3 ]);
         var path = d3.geo.path().projection(projection);
         return {
             path : path,
@@ -125,38 +127,70 @@ function getMapProjection(element) {
 }
 
 function updateMapIsdAsArc(res, path) {
-    var routes = [];
-    if (path < 0) {
-        for (var i = 0; i < res.if_lists.length; i++) {
-            routes.push(i);
-        }
-    } else {
-        routes.push(path);
-    }
     var arcs = [];
-    for (var p = 0; p < routes.length; p++) {
-        var pNum = parseInt(routes[p]);
-        for (var ifNum = 0; ifNum < (res.if_lists[pNum].length - 1); ifNum++) {
-            var ifRes = res.if_lists[pNum][ifNum];
-            var ifResNext = res.if_lists[pNum][ifNum + 1];
-            var iso2 = self.jLoc[ifRes.ISD + '-' + ifRes.AS];
-            var iso2Next = self.jLoc[ifResNext.ISD + '-' + ifResNext.AS];
-            if (iso2 == iso2Next) {
-                // skip internal routing when making arcs
-                continue;
+    // first add all possible routes from topology
+    for (var p = 0; p < self.jTopo.length; p++) {
+        // we want all ISD-ASes from each A to B link possible
+        var isdAsA = self.jLoc[self.jTopo[p].a];
+        var isdAsB = self.jLoc[self.jTopo[p].b];
+        if (isdAsA == isdAsB) {
+            // skip internal routing when making arcs
+            continue;
+        }
+        // find lat long
+        var arc = {
+            origin : {
+                latitude : latlong[isdAsA][0],
+                longitude : latlong[isdAsA][1]
+            },
+            destination : {
+                latitude : latlong[isdAsB][0],
+                longitude : latlong[isdAsB][1]
+            },
+            options : {
+                strokeColor : C_MAP_PATH_TOPO
+            },
+        };
+        arcs.push(arc);
+    }
+    if (typeof path !== "undefined") {
+        // second add specific routes from selected path
+        var routes = [];
+        if (path < 0) {
+            for (var i = 0; i < res.if_lists.length; i++) {
+                routes.push(i);
             }
-            // find lat long
-            var arc = {
-                origin : {
-                    latitude : latlong[iso2][0],
-                    longitude : latlong[iso2][1]
-                },
-                destination : {
-                    latitude : latlong[iso2Next][0],
-                    longitude : latlong[iso2Next][1]
+        } else {
+            routes.push(path);
+        }
+        for (var p = 0; p < routes.length; p++) {
+            var pNum = parseInt(routes[p]);
+            for (var ifNum = 0; ifNum < (res.if_lists[pNum].length - 1); ifNum++) {
+                // we want all ISD-ASes from each interface path traversed
+                var iface = res.if_lists[pNum][ifNum];
+                var ifaceNext = res.if_lists[pNum][ifNum + 1];
+                var isdAsA = self.jLoc[iface.ISD + '-' + iface.AS];
+                var isdAsB = self.jLoc[ifaceNext.ISD + '-' + ifaceNext.AS];
+                if (isdAsA == isdAsB) {
+                    // skip internal routing when making arcs
+                    continue;
                 }
-            };
-            arcs.push(arc);
+                // find lat long
+                var arc = {
+                    origin : {
+                        latitude : latlong[isdAsA][0],
+                        longitude : latlong[isdAsA][1]
+                    },
+                    destination : {
+                        latitude : latlong[isdAsB][0],
+                        longitude : latlong[isdAsB][1]
+                    },
+                    options : {
+                        strokeColor : C_MAP_PATH_ACTIVE
+                    },
+                };
+                arcs.push(arc);
+            }
         }
     }
     return arcs;

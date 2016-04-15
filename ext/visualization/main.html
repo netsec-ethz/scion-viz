@@ -18,6 +18,15 @@
 -->
 <meta charset="utf-8">
 <style>
+html, body {
+ height: 100%;
+}
+
+#divBody {
+ height: 100%;
+ min-height: 100%;
+}
+
 #divInst {
  float: left;
  width: 65%;
@@ -25,6 +34,7 @@
 }
 
 #divInstList {
+ height: 100%;
  overflow: auto;
 }
 
@@ -34,25 +44,31 @@
  height: 20%;
  border: 1px solid gray;
  padding: 5px;
+}
+
+#divConfigList {
+ height: 100%;
  overflow: auto;
 }
 
 #divMap {
- float: left;
+ overflow: hidden;
+ position: relative;
  width: 100%;
  height: 40%;
 }
 
 #interactiveMap {
- position: relative;
+ position: absolute;
  width: 100%;
- height: 300px;
+ height: 100%;
 }
 
 #TopologyGraph {
  overflow: auto;
+ position: absolute;
  width: 100%;
- height: 300px;
+ height: 100%;
 }
 
 #divStats {
@@ -63,7 +79,7 @@
 
 #divStatsWidget {
  overflow: auto;
- height: 300px;
+ height: 100%;
 }
 
 table {
@@ -186,21 +202,24 @@ text {
       cursor to desired zoom point and use a scroll wheel to zoom.</li>
      <li><span style="font-weight: bold;">Path Select:</span> Click
       the desired URL below and change the Path radio button.</li>
+     <li><span style="font-weight: bold;">Topology Orientation:</span> Click
+      and drag any node to the desired position.</li>
     </ul>
    </div>
   </div>
   <div id="divConfig">
-   <span style="font-weight: bold;">Configuration:</span><br>
-   <p></p>
-   <div>
-    ISD Whitelist:<br /> <input type="checkbox" id="ckbCheckAllIsd" /><label>All
-     ISDs</label> <br />
-    <div id="checkBoxesIsd"></div>
-   </div>
-   <p></p>
-   <div>
-    <input id="connect" value="Reconnect UDP" type="button"> <input
-     id="list" value="Update List" type="button">
+   <span style="font-weight: bold;">Configuration:</span><br> <br>
+   <div id="divConfigList">
+    <div>
+     ISD Whitelist:<br /> <input type="checkbox" id="ckbCheckAllIsd" /><label>All
+      ISDs</label> <br />
+     <div id="checkBoxesIsd"></div>
+    </div>
+    <p></p>
+    <div>
+     <input id="connect" value="Reconnect UDP" type="button"> <input
+      id="list" value="Update List" type="button">
+    </div>
    </div>
   </div>
   <div id="divMap">
