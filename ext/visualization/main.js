@@ -25,9 +25,6 @@ var kBaseIndexSel = 0;
 var kBaseUrlSel = null;
 var backgroundJobs = [];
 
-// TODO (mwfarb): expand the accordion scroll region to match window
-// TODO (mwfarb): correct the zoom first then path race condition
-
 window.onload = function() {
 }
 
@@ -345,8 +342,8 @@ function handleRespTopology(res) {
             }
         }
 
-        var width = 800, height = 800;
-        drawTopology(res, width, height);
+        var width = $(window).width(), height = $(window).height();
+        drawTopology(self.jTopo, width, height);
     }
 }
 
@@ -367,6 +364,7 @@ function handleRespLocations(res) {
 
         // Show AS and ISD numbers on the map on the countries
         map.bubbles(updateMapIsdAsBubbles());
+        map.arc(updateMapIsdAsArc());
     }
 }
 
@@ -452,8 +450,9 @@ function handleRespSetIsdWhitelist(res) {
         clearInterval(self.listIntervalId);
         document.getElementById("divStatsWidget").style.display = "none";
         document.getElementById("divResume").style.display = "block";
-        map.arc([]);
+        map.arc(updateMapIsdAsArc());
         map.bubbles(updateMapIsdAsBubbles());
+        restorePath();
     }
 }
 
@@ -474,7 +473,7 @@ function handleRespGetIsdWhitelist(res) {
             document.getElementById(id).checked = false;
         }
     }
-    if (isds.length == self.isds) {
+    if (isds.length == self.isds.length) {
         // when all isds checked, must sure 'all' is as well
         var cbAllIsd = document.getElementById("ckbCheckAllIsd");
         cbAllIsd.checked = true;
@@ -596,10 +595,11 @@ function isNumber(element, index, array) {
 $(function() {
     // initialize URL accordion widget
     $(".urlStatsWidget").accordion({
-        autoHeight : true,
+        autoHeight : false,
         collapsible : true,
         active : false,
         heightStyle : "content",
+        animate : 300,
         activate : function(event, ui) {
         }
     }).sortable({
@@ -621,8 +621,9 @@ $(function() {
             }
         } else {
             // when closing accordion clean the map
-            map.arc([]);
+            map.arc(updateMapIsdAsArc());
             map.bubbles(updateMapIsdAsBubbles());
+            restorePath();
         }
     });
     $(".toEnable").each(function() {
@@ -638,9 +639,14 @@ $(function() {
     $('#ckbCheckAllIsd').change(function() {
         handleIsdWhitelistCheckedChange();
     });
-
 });
-
+$(window).resize(function() {
+    // give topology more room
+    if (typeof self.jTopo !== "undefined") {
+        var width = $(window).width(), height = $(window).height();
+        drawTopology(self.jTopo, width, height);
+    }
+});
 // wait for DOM load
 $(document).ready(
         function() {
