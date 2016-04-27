@@ -1,22 +1,22 @@
-
 <!doctype html>
 <html>
 <head>
-<title>Popup for Proxy API Test</title>
+<title>Popup for Proxy API</title>
 <link href="css/popup.css" type="text/css" rel="stylesheet">
 </head>
 <body>
  <h1>Proxy Configuration</h1>
  <div role="main">
   <form id="proxyForm">
-   <fieldset id="system">
-    <legend>System Settings</legend>
-    <input type="radio" name="proxyType" id="proxyTypeSystem"
-     value="system"> <label for="proxyTypeSystem">Use
-     the <em>system's proxy settings</em>.
+   <fieldset id="scion">
+    <legend>SCION Settings</legend>
+    <input type="radio" name="proxyType" id="proxyTypeScion"
+     value="scion"> <label for="proxyTypeScion">Use <em>default
+      SCION proxy settings</em>. i.e. 127.0.0.1 and port 8080 for all
+     protocols.
     </label>
    </fieldset>
-   <fieldset id="direct">
+   <fieldset id="direct" style="display: none;">
     <legend>Direct Connection</legend>
     <input type="radio" name="proxyType" id="proxyTypeDirect"
      value="direct"> <label for="proxyTypeDirect">Your
@@ -24,7 +24,7 @@
      for a proxy.
     </label>
    </fieldset>
-   <fieldset id="pac_script">
+   <fieldset id="pac_script" style="display: none;">
     <legend>Automatic Configuration</legend>
     <input type="radio" name="proxyType" id="proxyTypeAutoconfig"
      value="autoconfig"> <label for="proxyTypeAutoconfig">Your
@@ -106,6 +106,13 @@
        placeholder="<local>,192.168.1.1/16, .example.com"></textarea>
      </fieldset>
     </section>
+   </fieldset>
+   <fieldset id="system">
+    <legend>System Settings</legend>
+    <input type="radio" name="proxyType" id="proxyTypeSystem"
+     value="system"> <label for="proxyTypeSystem">Use
+     the <em>system's proxy settings</em>.
+    </label>
    </fieldset>
    <input type="submit" value="Save proxy settings">
    <button value="incognito">Configure incognito window

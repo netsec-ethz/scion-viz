@@ -24,12 +24,6 @@ function ProxyErrorHandler() {
     chrome.extension.onRequest.addListener(this.handleOnRequest_.bind(this));
 };
 
-// TODO (mwfarb): pull proxy data from settings?
-// TODO (mwfarb): remove proxy entry window from app window
-// TODO (mwfarb): update extension to turn proxy on, turn off, use advanced
-// settings,
-// launch the app
-
 // /////////////////////////////////////////////////////////////////////////////
 
 /**
@@ -52,12 +46,11 @@ ProxyErrorHandler.prototype = {
      * Handle request messages from the popup.
      * 
      * @param {!{type:string}}
-     *                request The external request to answer.
+     *            request The external request to answer.
      * @param {!MessageSender}
-     *                sender Info about the script context that sent the
-     *                request.
+     *            sender Info about the script context that sent the request.
      * @param {!function}
-     *                sendResponse Function to call to send a response.
+     *            sendResponse Function to call to send a response.
      * @private
      */
     handleOnRequest_ : function(request, sender, sendResponse) {
@@ -78,7 +71,7 @@ ProxyErrorHandler.prototype = {
      * badges the browser action icon.
      * 
      * @param {!ProxyErrorHandler.ErrorDetails}
-     *                details The error details.
+     *            details The error details.
      * @private
      */
     handleError_ : function(details) {
