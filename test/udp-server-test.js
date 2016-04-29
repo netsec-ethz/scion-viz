@@ -31,9 +31,14 @@ var server = dgram.createSocket('udp4');
 var threshold = 0.99;
 var UDP_PORT = 7777;
 
+if (process.argv.length <= 2) {
+    console.log("Usage: " + __filename + " d|w|t");
+    process.exit(-1);
+}
+
 var args = process.argv.slice(2);
-var test = (args.length > 0) ? args[0] : "w";
-console.log(args + ',' + test);
+var test = (args.length > 0) ? args[0] : "d";
+console.log('Param: ' + test);
 
 server.on("listening", function() {
     var address = server.address();
@@ -63,7 +68,7 @@ server.on("message", function(message, rinfo) {
     // parse the json
     var rc = JSON.parse(jData);
     var jData = '';
-    var dataRoot = process.cwd() + '/test/data/';
+    var dataRoot = __dirname + '/data/';
 
     // add dummy parameters before echoing back
     if (rc.command == 'LOOKUP') {
@@ -87,6 +92,8 @@ server.on("message", function(message, rinfo) {
         jData = loadTestData(dataRoot + 'isd_whitelist.json');
     } else if (rc.command == 'GET_ISD_WHITELIST') {
         jData = loadTestData(dataRoot + 'get_isd_whitelist-' + test + '.json');
+    } else if (rc.command == 'GET_ISD_ENDPOINTS') {
+        jData = loadTestData(dataRoot + 'get_isd_endpoints-' + test + '.json');
     } else if (rc.command == 'TOPO') {
         jData = loadTestData(dataRoot + 'topo-' + test + '.json');
     } else if (rc.command == 'LOCATIONS') {
@@ -110,8 +117,7 @@ server.on("close", function() {
     console.log("Socket closed");
 });
 
-var port = process.argv[2];
-server.bind(port ? parseInt(port) : UDP_PORT);
+server.bind(UDP_PORT);
 
 function createRandomLookup() {
     var u = {};
