@@ -164,7 +164,6 @@ function refreshSocketData() {
     if (self.jTopo != null && self.jLoc == null) {
         // locations should load only after topology has arrived
         requestLocations();
-        requestGetIsdWhitelist();
     }
     if (self.jLoc != null) {
         requestListUpdate();
@@ -201,16 +200,20 @@ function requestSetIsdWhitelist(isds) {
     }
     var jSend = JSON.stringify(req);
     sendRequest(jSend);
-
-    map.updateChoropleth(updateMapIsdSelChoropleth(isds), {
-        reset : true
-    });
 }
 
 function requestGetIsdWhitelist() {
     var req = {};
     req.version = PARA_VER;
     req.command = 'GET_ISD_WHITELIST';
+    var jSend = JSON.stringify(req);
+    sendRequest(jSend);
+}
+
+function requestGetEndpoints() {
+    var req = {};
+    req.version = PARA_VER;
+    req.command = 'GET_ISD_ENDPOINTS';
     var jSend = JSON.stringify(req);
     sendRequest(jSend);
 }
@@ -280,6 +283,10 @@ function updateUiUdpRecv(ab) {
             if (res.hasOwnProperty("sent_packets")) {
                 // lookup
                 handleRespLookup(res);
+            } else if (res.hasOwnProperty("source_ISD_AS")
+                    && res.hasOwnProperty("target_ISD_AS")) {
+                // get isd endpoints
+                handleRespGetIsdEndpoints(res);
             } else if (res.hasOwnProperty("STATUS")) {
                 // isd set whitelist
                 handleRespSetIsdWhitelist(res);
@@ -347,6 +354,33 @@ function handleRespTopology(res) {
     }
 }
 
+function handleRespGetIsdEndpoints(res) {
+    // Update bubble with src and dst now known
+    var src = res.source_ISD_AS;
+    var dst = res.target_ISD_AS;
+    map.bubbles(updateMapIsdAsBubbles(src[0] + "-" + src[1], dst[0] + "-"
+            + dst[1]));
+
+    // gray out only src and dest checkboxes
+    var isAnyEnabled = false;
+    var cbLen = document.getElementsByName('cbIsd').length;
+    for (var i = 0; i < cbLen; i++) {
+        var cb = document.getElementsByName('cbIsd')[i];
+        var id = "ckbIsd" + cb.value;
+        if (cb.value == src[0] || cb.value == dst[0]) {
+            document.getElementById(id).disabled = true;
+            document.getElementById(id).checked = true;
+        } else {
+            // re enable when src and dst are known
+            document.getElementById(id).disabled = false;
+            isAnyEnabled = true;
+        }
+    }
+    // if all ISDs grey, no change wlist cmd
+    var cbAllIsd = document.getElementById("ckbCheckAllIsd");
+    cbAllIsd.disabled = !isAnyEnabled;
+}
+
 function handleRespLocations(res) {
     // store locations locally for later rendering
     if (typeof self.jLoc === "undefined") {
@@ -365,6 +399,10 @@ function handleRespLocations(res) {
         // Show AS and ISD numbers on the map on the countries
         map.bubbles(updateMapIsdAsBubbles());
         map.arc(updateMapIsdAsArc());
+
+        // make requests only after map is loaded
+        requestGetEndpoints();
+        requestGetIsdWhitelist();
     }
 }
 
@@ -396,31 +434,6 @@ function handleRespLookup(res) {
     renderStatsHeader(kBaseIndexSel, rStat("All Paths", head));
     renderStatsBody(kBaseIndexSel);
 
-    // Update bubble with src and dst now known
-    var src = res.if_lists[0][0];
-    var dst = res.if_lists[0][res.if_lists[0].length - 1];
-    map.bubbles(updateMapIsdAsBubbles(src.ISD + "-" + src.AS, dst.ISD + "-"
-            + dst.AS));
-
-    // gray out only src and dest checkboxes
-    var isAnyEnabled = false;
-    var cbLen = document.getElementsByName('cbIsd').length;
-    for (var i = 0; i < cbLen; i++) {
-        var cb = document.getElementsByName('cbIsd')[i];
-        var id = "ckbIsd" + cb.value;
-        if (cb.value == src.ISD || cb.value == dst.ISD) {
-            document.getElementById(id).disabled = true;
-            document.getElementById(id).checked = true;
-        } else {
-            // re enable when src and dst are known
-            document.getElementById(id).disabled = false;
-            isAnyEnabled = true;
-        }
-    }
-    // if all ISDs grey, no change wlist cmd
-    var cbAllIsd = document.getElementById("ckbCheckAllIsd");
-    cbAllIsd.disabled = !isAnyEnabled;
-
     // show the links between the countries on the map, default to last path
     document.getElementsByName('radioPath')[res.if_lists.length].checked = true;
     handlePathSelection(res, res.if_lists.length - 1);
@@ -451,7 +464,6 @@ function handleRespSetIsdWhitelist(res) {
         document.getElementById("divStatsWidget").style.display = "none";
         document.getElementById("divResume").style.display = "block";
         map.arc(updateMapIsdAsArc());
-        map.bubbles(updateMapIsdAsBubbles());
         restorePath();
     }
 }
@@ -493,12 +505,18 @@ function handleIsdWhitelistCheckedChange() {
             isds.push(parseInt(cb.value));
         }
     }
+    map.updateChoropleth(updateMapIsdSelChoropleth(isds), {
+        reset : true
+    });
+
+    // when all isds checked, must sure 'all' is as well
+    var cbAllIsd = document.getElementById("ckbCheckAllIsd");
     if (isds.length == cbLen) {
         // when all are checked send clear whitelist cmd
         isds = [];
-        // when all isds checked, must sure 'all' is as well
-        var cbAllIsd = document.getElementById("ckbCheckAllIsd");
         cbAllIsd.checked = true;
+    } else {
+        cbAllIsd.checked = false;
     }
     requestSetIsdWhitelist(isds);
 }
@@ -620,9 +638,8 @@ $(function() {
                 echoClient.sender();
             }
         } else {
-            // when closing accordion clean the map
+            // when closing accordion clean path selection, keep bubbles
             map.arc(updateMapIsdAsArc());
-            map.bubbles(updateMapIsdAsBubbles());
             restorePath();
         }
     });
