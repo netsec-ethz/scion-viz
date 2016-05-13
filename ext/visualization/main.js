@@ -17,6 +17,7 @@
 var C_STAT_BKGN = '99CCFF';
 var MS_SETUP_INTERVAL = 1000;
 var MS_LIST_INTERVAL = 5000;
+var MS_UDP_INTERVAL = 100;
 var UDP_ADDR = "127.0.0.1:7777";
 var PARA_VER = '0.1';
 
@@ -24,6 +25,20 @@ var kBaseIndex = 0;
 var kBaseIndexSel = 0;
 var kBaseUrlSel = null;
 var backgroundJobs = [];
+var reqs = [];
+var udpReqMutex = false;
+
+// UDP request commands
+var ReqCmds = {
+    GET_URL_STATS : 'LOOKUP',
+    GET_URLS : 'LIST',
+    GET_TOPOLOGY : 'TOPO',
+    GET_LOCATIONS : 'LOCATIONS',
+    SET_ISD_WHITELIST : 'ISD_WHITELIST',
+    GET_ISD_WHITELIST : 'GET_ISD_WHITELIST',
+    GET_ISD_ENDPOINTS : 'GET_ISD_ENDPOINTS',
+    CLEAR_URLS : 'LIST_CLEAR',
+};
 
 window.onload = function() {
 }
@@ -141,6 +156,18 @@ window.addEventListener("load", function() {
             refreshSocketData();
         }, MS_LIST_INTERVAL);
     };
+
+    // JS is reentrant, setInterval is needed for serialization of UDP
+    self.reqIntervalId = setInterval(function() {
+        // if UDP available, send next command
+        if (!udpReqMutex && reqs.length > 0) {
+            console.log('queue len = ' + reqs.length);
+            udpReqMutex = true;
+            echoClient.echo(reqs[0], function() {
+            });
+        }
+    }, MS_UDP_INTERVAL);
+
 });
 
 var newEchoClient = function(address) {
@@ -174,84 +201,72 @@ function refreshSocketData() {
     }
 }
 
-function sendRequest(jSend) {
+function sendRequest(req) {
+    // append version
+    req.version = PARA_VER;
+    // format
+    var jSend = JSON.stringify(req);
     var jLen = jSend.length;
     var data = str2ab(ab2str(toBytesUInt32(jLen)) + jSend);
-    echoClient.echo(data, function() {
-    });
+    // add request to end of queue
+    reqs.push(data);
 }
 
 function requestGetUrlStats() {
     var header = kBaseUrlSel.split(" ");
-    var req = {};
-    req.version = PARA_VER;
-    req.command = 'LOOKUP';
-    req.req_type = header[0];
-    req.res_name = header[1];
-    var jSend = JSON.stringify(req);
-    sendRequest(jSend);
+    sendRequest({
+        command : ReqCmds.GET_URL_STATS,
+        req_type : header[0],
+        res_name : header[1]
+    });
 }
 
 function requestSetIsdWhitelist(isds) {
-    var req = {};
-    req.version = PARA_VER;
-    req.command = 'ISD_WHITELIST';
-    req.isds = isds;
-    if (isds == 'None' || req.isds == NaN) {
+    if (isds == 'None' || isds == NaN) {
         return;
     }
-    var jSend = JSON.stringify(req);
-    sendRequest(jSend);
+    sendRequest({
+        command : ReqCmds.SET_ISD_WHITELIST,
+        isds : isds
+    });
 }
 
 function requestGetIsdWhitelist() {
-    var req = {};
-    req.version = PARA_VER;
-    req.command = 'GET_ISD_WHITELIST';
-    var jSend = JSON.stringify(req);
-    sendRequest(jSend);
+    sendRequest({
+        command : ReqCmds.GET_ISD_WHITELIST
+    });
 }
 
 function requestGetEndpoints() {
-    var req = {};
-    req.version = PARA_VER;
-    req.command = 'GET_ISD_ENDPOINTS';
-    var jSend = JSON.stringify(req);
-    sendRequest(jSend);
+    sendRequest({
+        command : ReqCmds.GET_ISD_ENDPOINTS
+    });
 }
 
 function requestGetUrls() {
-    var req = {};
-    req.version = PARA_VER;
-    req.command = 'LIST';
-    var jSend = JSON.stringify(req);
-    sendRequest(jSend);
+    sendRequest({
+        command : ReqCmds.GET_URLS
+    });
 
     // TODO (mwfarb): warn if knowledge base unavailable
 }
 
 function requestGetTopology() {
-    var req = {};
-    req.version = PARA_VER;
-    req.command = 'TOPO';
-    var jSend = JSON.stringify(req);
-    sendRequest(jSend);
+    sendRequest({
+        command : ReqCmds.GET_TOPOLOGY
+    });
 }
 
 function requestGetLocations() {
-    var req = {};
-    req.version = PARA_VER;
-    req.command = 'LOCATIONS';
-    var jSend = JSON.stringify(req);
-    sendRequest(jSend);
+    sendRequest({
+        command : ReqCmds.GET_LOCATIONS
+    });
 }
 
 function requestClearUrls() {
-    var req = {};
-    req.version = PARA_VER;
-    req.command = 'LIST_CLEAR';
-    var jSend = JSON.stringify(req);
-    sendRequest(jSend);
+    sendRequest({
+        command : ReqCmds.CLEAR_URLS
+    });
 }
 
 function updateUiUdpSent(ab) {
@@ -260,50 +275,61 @@ function updateUiUdpSent(ab) {
 }
 
 function updateUiUdpRecv(ab) {
-    var text = ab2str(ab);
-    console.log('receive', "'" + text + "'");
+    var txtRecv = ab2str(ab);
+    console.log('receive', "'" + txtRecv + "'");
 
-    var jLen = fromBytesUInt32(str2ab(text.substring(0, 4)));
-    var jData = text.substring(4);
+    var txtSent = ab2str(reqs[0]);
+    var sent = JSON.parse(txtSent.substring(4));
+    console.log('cmd: ' + sent.command);
+
+    // remove request from beginning of queue
+    reqs.shift();
+    udpReqMutex = false;
+
+    var jLen = fromBytesUInt32(str2ab(txtRecv.substring(0, 4)));
+    var jRecv = txtRecv.substring(4);
     // check length
-    if (jLen != jData.length) {
+    if (jLen != jRecv.length) {
         console.log("Lengths not equal, discarding: " + jLen + ","
-                + jData.length);
+                + jRecv.length);
         return;
     }
 
-    // TODO (mwfarb): since js is reentrant, setTimeout() may be needed for
-    // serialization of UDP messages, for now detect resp by content
-
     try {
-        var res = JSON.parse(jData);
-        if (Array.isArray(res)) {
-            if (res.every(isNumber) || res.length == 0) {
-                // isd get whitelist
-                handleRespGetIsdWhitelist(res);
-            } else if (res[0].hasOwnProperty("a") && res[0].hasOwnProperty("b")
-                    && res[0].hasOwnProperty("ltype")) {
-                // topology
-                handleRespGetTopology(res);
-            } else {
-                // url list
-                handleRespGetUrls(res);
-            }
-        } else {
-            if (res.hasOwnProperty("sent_packets")) {
-                // lookup
-                handleRespGetUrlStats(res);
-            } else if (res.hasOwnProperty("source_ISD_AS")
-                    && res.hasOwnProperty("target_ISD_AS")) {
-                // get isd endpoints
-                handleRespGetIsdEndpoints(res);
-            } else if (res.hasOwnProperty("STATUS")) {
-                // isd set whitelist
-                handleRespSetIsdWhitelist(res);
-            } else {
-                // locations
-                handleRespGetLocations(res);
-            }
+        var res = JSON.parse(jRecv);
+        switch (sent.command) {
+        case ReqCmds.GET_ISD_WHITELIST:
+            // isd get whitelist
+            handleRespGetIsdWhitelist(res);
+            break;
+        case ReqCmds.GET_TOPOLOGY:
+            // topology
+            handleRespGetTopology(res);
+            break;
+        case ReqCmds.GET_URLS:
+            // url list
+            handleRespGetUrls(res);
+            break;
+        case ReqCmds.GET_URL_STATS:
+            // lookup
+            handleRespGetUrlStats(res);
+            break;
+        case ReqCmds.GET_ISD_ENDPOINTS:
+            // get isd endpoints
+            handleRespGetIsdEndpoints(res);
+            break;
+        case ReqCmds.SET_ISD_WHITELIST:
+            // isd set whitelist
+            handleRespSetIsdWhitelist(res);
+            break;
+        case ReqCmds.GET_LOCATIONS:
+            // locations
+            handleRespGetLocations(res);
+            break;
+        case ReqCmds.CLEAR_URLS:
+            // clear list
+            handleRespClearUrls(res);
+            break;
         }
     } catch (e) {
         if (e instanceof SyntaxError) {
@@ -658,7 +684,7 @@ $(function() {
             console.log("activate init event: " + kBaseIndexSel);
             requestGetUrlStats();
         } else {
-            // when closing accordion clean path selction, keep bubbles
+            // when closing accordion clean path selection, keep bubbles
             map.arc(updateMapIsdAsArc());
             restorePath();
         }
