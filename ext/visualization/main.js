@@ -145,7 +145,6 @@ window.addEventListener("load", function() {
 
 var newEchoClient = function(address) {
     var ec = new chromeNetworking.clients.echoClient();
-    ec.sender = attachSend(ec);
     var hostnamePort = address.split(":");
     var hostname = hostnamePort[0];
     var port = (hostnamePort[1] || 7) | 0;
@@ -182,18 +181,16 @@ function sendRequest(jSend) {
     });
 }
 
-var attachSend = function(client) {
-    return function(e) {
-        var header = kBaseUrlSel.split(" ");
-        var req = {};
-        req.version = PARA_VER;
-        req.command = 'LOOKUP';
-        req.req_type = header[0];
-        req.res_name = header[1];
-        var jSend = JSON.stringify(req);
-        sendRequest(jSend);
-    };
-};
+function requestGetUrlStats() {
+    var header = kBaseUrlSel.split(" ");
+    var req = {};
+    req.version = PARA_VER;
+    req.command = 'LOOKUP';
+    req.req_type = header[0];
+    req.res_name = header[1];
+    var jSend = JSON.stringify(req);
+    sendRequest(jSend);
+}
 
 function requestSetIsdWhitelist(isds) {
     var req = {};
@@ -255,8 +252,6 @@ function requestClearUrls() {
     req.command = 'LIST_CLEAR';
     var jSend = JSON.stringify(req);
     sendRequest(jSend);
-
-    // TODO: clear urls
 }
 
 function updateUiUdpSent(ab) {
@@ -661,24 +656,13 @@ $(function() {
             kBaseUrlSel = ui.newHeader[0].innerText;
             kBaseIndexSel = ui.newPanel.attr('id');
             console.log("activate init event: " + kBaseIndexSel);
-            if (echoClient != null) {
-                echoClient.sender();
-            }
+            requestGetUrlStats();
         } else {
             // when closing accordion clean path selction, keep bubbles
             map.arc(updateMapIsdAsArc());
             restorePath();
         }
     });
-    $(".toEnable").each(function() {
-        $(this).removeClass("ui-state-disabled");
-    });
-    $(".toDisable").each(function() {
-        $(this).addClass("ui-state-disabled");
-    });
-
-    // TODO (mwfarb): change color of list items when disabled
-
     // initialize ISD checkboxes
     $('#ckbCheckAllIsd').change(function() {
         handleIsdWhitelistCheckedChange();
