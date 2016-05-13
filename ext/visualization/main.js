@@ -116,7 +116,8 @@ var echoClient = null;
 
 window.addEventListener("load", function() {
     var connect = document.getElementById("connect");
-    var list = document.getElementById("list");
+    var get_urls = document.getElementById("get_urls");
+    var clear_urls = document.getElementById("clear_urls");
     var resume = document.getElementById("resume");
 
     echoClient = newEchoClient(UDP_ADDR);
@@ -124,8 +125,12 @@ window.addEventListener("load", function() {
         echoClient.disconnect();
         echoClient = newEchoClient(UDP_ADDR);
     };
-    list.onclick = function(ev) {
-        requestListUpdate();
+    get_urls.onclick = function(ev) {
+        requestGetUrls();
+    };
+    clear_urls.onclick = function(ev) {
+        requestClearUrls();
+        removeAllFromAccordion();
     };
     resume.onclick = function(ev) {
         // on click Resume List, set the interval to poll the
@@ -159,14 +164,14 @@ var newEchoClient = function(address) {
 
 function refreshSocketData() {
     if (self.jTopo == null) {
-        requestTopology();
+        requestGetTopology();
     }
     if (self.jTopo != null && self.jLoc == null) {
         // locations should load only after topology has arrived
-        requestLocations();
+        requestGetLocations();
     }
     if (self.jLoc != null) {
-        requestListUpdate();
+        requestGetUrls();
     }
 }
 
@@ -218,7 +223,7 @@ function requestGetEndpoints() {
     sendRequest(jSend);
 }
 
-function requestListUpdate() {
+function requestGetUrls() {
     var req = {};
     req.version = PARA_VER;
     req.command = 'LIST';
@@ -228,7 +233,7 @@ function requestListUpdate() {
     // TODO (mwfarb): warn if knowledge base unavailable
 }
 
-function requestTopology() {
+function requestGetTopology() {
     var req = {};
     req.version = PARA_VER;
     req.command = 'TOPO';
@@ -236,12 +241,22 @@ function requestTopology() {
     sendRequest(jSend);
 }
 
-function requestLocations() {
+function requestGetLocations() {
     var req = {};
     req.version = PARA_VER;
     req.command = 'LOCATIONS';
     var jSend = JSON.stringify(req);
     sendRequest(jSend);
+}
+
+function requestClearUrls() {
+    var req = {};
+    req.version = PARA_VER;
+    req.command = 'LIST_CLEAR';
+    var jSend = JSON.stringify(req);
+    sendRequest(jSend);
+
+    // TODO: clear urls
 }
 
 function updateUiUdpSent(ab) {
@@ -274,15 +289,15 @@ function updateUiUdpRecv(ab) {
             } else if (res[0].hasOwnProperty("a") && res[0].hasOwnProperty("b")
                     && res[0].hasOwnProperty("ltype")) {
                 // topology
-                handleRespTopology(res);
+                handleRespGetTopology(res);
             } else {
                 // url list
-                handleRespList(res);
+                handleRespGetUrls(res);
             }
         } else {
             if (res.hasOwnProperty("sent_packets")) {
                 // lookup
-                handleRespLookup(res);
+                handleRespGetUrlStats(res);
             } else if (res.hasOwnProperty("source_ISD_AS")
                     && res.hasOwnProperty("target_ISD_AS")) {
                 // get isd endpoints
@@ -292,7 +307,7 @@ function updateUiUdpRecv(ab) {
                 handleRespSetIsdWhitelist(res);
             } else {
                 // locations
-                handleRespLocations(res);
+                handleRespGetLocations(res);
             }
         }
     } catch (e) {
@@ -306,7 +321,7 @@ function updateUiUdpRecv(ab) {
     }
 }
 
-function handleRespTopology(res) {
+function handleRespGetTopology(res) {
     // store topology locally for later rendering
     if (typeof self.jTopo === "undefined") {
         self.jTopo = res;
@@ -381,7 +396,7 @@ function handleRespGetIsdEndpoints(res) {
     cbAllIsd.disabled = !isAnyEnabled;
 }
 
-function handleRespLocations(res) {
+function handleRespGetLocations(res) {
     // store locations locally for later rendering
     if (typeof self.jLoc === "undefined") {
         self.jLoc = res;
@@ -400,13 +415,13 @@ function handleRespLocations(res) {
         map.bubbles(updateMapIsdAsBubbles());
         map.arc(updateMapIsdAsArc());
 
-        // make requests only after mpa is loaded
+        // make requests only after map is loaded
         requestGetEndpoints();
         requestGetIsdWhitelist();
     }
 }
 
-function handleRespList(res) {
+function handleRespGetUrls(res) {
     // add elements from list to accordion
     res.forEach(function(entry) {
         addUrlToAccordion(entry);
@@ -414,7 +429,7 @@ function handleRespList(res) {
     sortAccordion();
 }
 
-function handleRespLookup(res) {
+function handleRespGetUrlStats(res) {
     // render socket stats data for url expanded body
     var head = [];
     var lrs = [];
@@ -496,6 +511,12 @@ function handleRespGetIsdWhitelist(res) {
     });
 }
 
+function handleRespClearUrls(res) {
+    // TODO (mwfarb): handle error case when clearing urls fails, likely only a
+    // persistant warning for inaccuracy and possible instruction to try
+    // manually clicking 'Clear Stats'.
+}
+
 function handleIsdWhitelistCheckedChange() {
     var cbLen = document.getElementsByName('cbIsd').length;
     var isds = [];
@@ -519,6 +540,7 @@ function handleIsdWhitelistCheckedChange() {
         cbAllIsd.checked = false;
     }
     requestSetIsdWhitelist(isds);
+    requestClearUrls();
 }
 
 function getInterfaceListRows(res) {
@@ -577,6 +599,11 @@ function addUrlToAccordion(httpReq) {
             kBaseIndex++;
         }
     });
+}
+
+function removeAllFromAccordion() {
+    // clear the contents
+    $(".urlStatsWidget").empty();
 }
 
 function ab2str(ab) {
