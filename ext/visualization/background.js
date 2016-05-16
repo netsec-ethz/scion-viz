@@ -16,10 +16,10 @@
 
 // open the window on launch
 chrome.app.runtime.onLaunched.addListener(function() {
-	chrome.app.window.create('main.html', {
-		'outerBounds' : {
-			'width' : 600,
-			'height' : 800
-		}
-	});
+    chrome.app.window.create('main.html', {
+        'outerBounds' : {
+            'width' : 800,
+            'height' : 800
+        }
+    });
 });
