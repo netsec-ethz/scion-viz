@@ -202,8 +202,8 @@ text {
       cursor to desired zoom point and use a scroll wheel to zoom.</li>
      <li><span style="font-weight: bold;">Path Select:</span> Click
       the desired URL below and change the Path radio button.</li>
-     <li><span style="font-weight: bold;">Topology Orientation:</span> Click
-      and drag any node to the desired position.</li>
+     <li><span style="font-weight: bold;">Topology
+       Orientation:</span> Click and drag any node to the desired position.</li>
     </ul>
    </div>
   </div>
@@ -217,8 +217,10 @@ text {
     </div>
     <p></p>
     <div>
-     <input id="connect" value="Reconnect UDP" type="button"> <input
-      id="list" value="Update List" type="button">
+     <input id="connect" value="Reconnect UDP" type="button"
+      style="display: none;"> <input id="list"
+      value="Update Stats" type="button"> <input id="clear"
+      value="Clear Stale Stats" type="button">
     </div>
    </div>
   </div>
@@ -236,14 +238,6 @@ text {
   </div>
   <div id="divStats">
    <span style="font-weight: bold;">Socket Proxy Data:</span><br>
-   <div id="divResume" style="display: none;">
-    <p>Now, after updating the ISD Whitelist, please refresh your
-     browser pages to allow packets to traverse the new network
-     configuration. Then, close this window and reopen it to see the new
-     proxy results.</p>
-    <input id="resume" value="Resume Proxy Stats" type="button"
-     style="display: none;">
-   </div>
    <div id="divStatsWidget" class="urlStatsWidget"></div>
   </div>
  </div>
