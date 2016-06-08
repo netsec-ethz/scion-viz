@@ -47,7 +47,7 @@
                 socket.create(sockProp, function(_socketInfo) {
                     socketInfo = _socketInfo;
 
-                    socket.bind(socketInfo.socketId, address, 0, function(
+                    socket.bind(socketInfo.socketId, "0.0.0.0", 0, function(
                             connectResult) {
                         connected = (connectResult == 0);
 
@@ -94,6 +94,7 @@
 
                 socket.close(socketInfo.socketId, function() {
                     connected = false;
+                    console.log('closed socket', address, port);
                 });
             };
         };

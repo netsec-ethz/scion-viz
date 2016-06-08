@@ -7,7 +7,10 @@
  *               ProxyErrorHandler, and resetting proxy settings if required.
  * 
  * @author Mike West <mkwst@google.com>
+ * @author mwfarb@cmu.edu (Michael Farb): Added SCION proxy settings.
  */
+
+var VIZ_APP_ID = "bogdaeienjhpdgpnmhenbgkjkglcbdok";
 
 document.addEventListener("DOMContentLoaded", function() {
     var errorHandler = new ProxyErrorHandler();
@@ -20,5 +23,30 @@ document.addEventListener("DOMContentLoaded", function() {
         chrome.proxy.settings.set({
             'value' : persistedSettings.regular
         });
+    }
+});
+
+chrome.runtime.onMessageExternal.addListener(function(request, sender,
+        sendResponse) {
+    if (sender.id == VIZ_APP_ID) {
+        console.log(JSON.stringify(request));
+        // incoming request for proxy settings from visualization app
+        if (request.getProxyAddress) {
+            chrome.proxy.settings.get({
+                'incognito' : false
+            }, function(config) {
+                console.log(JSON.stringify(config));
+                var c = config.value;
+                var proxyAddr = null;
+                if (c.mode === 'fixed_servers' && c.rules
+                        && c.rules.singleProxy) {
+                    proxyAddr = c.rules.singleProxy.host;
+                }
+                sendResponse({
+                    proxyAddress : proxyAddr
+                });
+            });
+        }
+        return true;
     }
 });

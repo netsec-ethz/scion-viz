@@ -13,6 +13,7 @@
 
 var SCION_HOST = '127.0.0.1';
 var SCION_PORT = 8080;
+var VIZ_APP_ID = "bogdaeienjhpdgpnmhenbgkjkglcbdok";
 
 /**
  * Wraps the proxy configuration form, binding proper handlers to its various
@@ -554,6 +555,22 @@ ProxyFormController.prototype = {
         {value: this.config_.regular, scope: 'regular'},
         this.callbackForRegularSettings_.bind(this));
     chrome.extension.sendRequest({type: 'clearError'});
+        
+    // send an update for current proxy address
+    var c = this.config_.regular;
+    if (this.config_.incognito) {
+      c = this.config_.incognito;
+    }
+    var proxyAddr = null;
+    if (c.mode === 'fixed_servers' && c.rules && c.rules.singleProxy) {
+      proxyAddr = c.rules.singleProxy.host;
+    }
+    chrome.runtime.sendMessage(VIZ_APP_ID, {
+        proxyAddress : proxyAddr
+    }, function(response) {
+        console.log(JSON.stringify(response));
+        return true;
+    });
   },
 
   /**
@@ -616,7 +633,7 @@ ProxyFormController.prototype = {
         success.classList.remove('visible');
       else
         window.close();
-    }, 4000);
+    }, 2000);
   },
 
 
