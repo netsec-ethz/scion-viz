@@ -15,7 +15,7 @@
   "browser_action": {
     "default_icon": "img/icon16.png",
     "default_popup": "popup.html",
-    "default_title": "SCION Proxy Settings"
+    "default_title": "SCION Proxy Manager"
   },
   "background": {
     "scripts": [
@@ -23,6 +23,9 @@
       "proxy_error_handler.js",
       "background.js"
     ]
+  },
+  "externally_connectable": { 
+      "ids": [ "bogdaeienjhpdgpnmhenbgkjkglcbdok" ] 
   },
   "permissions": [
     "proxy"

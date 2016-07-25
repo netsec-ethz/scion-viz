@@ -18,13 +18,10 @@ var C_STAT_BKGN = '99CCFF';
 var MS_LIST_INTERVAL = 5000;
 var MS_UDP_INTERVAL = 100;
 var MS_UDP_TIMEOUT = 5000;
-var UDP_ADDR = "127.0.0.1:7777";
+var UDP_PORT = "7777";
 var PARA_VER = '0.1';
+var PROXYMGR_EXT_ID = "akhbnlfhbdpigconahnoogmdopjcfemk";
 
-var kBaseIndex = 0;
-var kBaseIndexSel = 0;
-var kBaseUrlSel = null;
-var backgroundJobs = [];
 var reqs_cnt = 0;
 var resp_cnt = 0;
 var reqs = [];
@@ -45,85 +42,6 @@ var ReqCmds = {
 window.onload = function() {
 }
 
-// D3 simple table...
-
-var rStat = function(name, arr) {
-    var row = {};
-    row.name = name;
-    for (var i = 0; i < arr.length; i++) {
-        row["path" + i] = arr[i];
-    }
-    return row;
-};
-
-function renderStatsHeader(index, hRow) {
-    var thead = d3.select(".urlStatsWidget").select('[id="' + index + '"]')
-            .select('thead');
-    var rows = thead.selectAll("tr").data([ hRow ], function(d) {
-        return d.name;
-    });
-    rows.enter().append("tr");
-    rows.order();
-    var cells = rows.selectAll("th").data(function(row) {
-        var cols = [];
-
-        cols.push({
-            column : '-1',
-            value : row.name
-        });
-        var i = 0;
-        while (row.hasOwnProperty("path" + i)) {
-            cols.push({
-                column : i,
-                value : row["path" + i]
-            });
-            i++;
-        }
-        return cols;
-    });
-    // Create accurate list of paths radio buttons
-    cells.enter().append("th").append('label').html(function(d) {
-        return d.value;
-    }).append('input').attr('name', 'radioPath').attr('type', 'radio').attr(
-            'value', function(d) {
-                return (d.column).toString();
-            });
-    cells.exit().remove();
-    rows.exit().remove();
-}
-
-function renderStatsBody(index) {
-    var tbody = d3.select(".urlStatsWidget").select('[id="' + index + '"]')
-            .select('tbody');
-    var rows = tbody.selectAll("tr").data(backgroundJobs, function(d) {
-        return d.name;
-    });
-    rows.enter().append("tr");
-    rows.order();
-    var cells = rows.selectAll("td").data(function(row) {
-        var cols = [];
-        cols.push({
-            column : 'Name',
-            value : row.name
-        });
-        var i = 0;
-        while (row.hasOwnProperty("path" + i)) {
-            cols.push({
-                column : i,
-                value : row["path" + i]
-            });
-            i++;
-        }
-        return cols;
-    });
-    cells.enter().append("td");
-    cells.text(function(d) {
-        return d.value;
-    });
-    cells.exit().remove();
-    rows.exit().remove();
-}
-
 // UDP sockets...
 
 console.debug = function() {
@@ -131,17 +49,25 @@ console.debug = function() {
 
 var echoClient = null;
 
+chrome.runtime.onMessageExternal.addListener(function(request, sender,
+        sendResponse) {
+    if (sender.id == PROXYMGR_EXT_ID) {
+        handleProxyManagerRequest(request);
+    }
+});
+
 window.addEventListener("load", function() {
-    var connect = document.getElementById("connect");
+    var address = document.getElementById("address");
     var list = document.getElementById("list");
     var clear = document.getElementById("clear");
 
-    echoClient = newEchoClient(UDP_ADDR);
-    connect.onclick = function(ev) {
-        clearTimeout(self.listTimeoutId);
-        echoClient.disconnect();
-        echoClient = newEchoClient(UDP_ADDR);
-    };
+    // send a request for current proxy address
+    chrome.runtime.sendMessage(PROXYMGR_EXT_ID, {
+        getProxyAddress : true
+    }, function(response) {
+        handleProxyManagerRequest(response);
+    });
+
     list.onclick = function(ev) {
         clearTimeout(self.listTimeoutId);
         requestListUpdate();
@@ -150,37 +76,98 @@ window.addEventListener("load", function() {
         clearFrontEnd();
         requestClear();
     };
+});
 
+function handleProxyManagerRequest(request) {
+    console.log(JSON.stringify(request));
+    if (request) {
+        // reset state for new requests
+        clearFrontEnd();
+        clearTimeout(self.reqTimeoutId);
+        clearInterval(self.reqIntervalId);
+        clearTimeout(self.listTimeoutId);
+        backgroundJobs = [];
+        reqs_cnt = 0;
+        resp_cnt = 0;
+        reqs = [];
+        udpReqMutex = false;
+
+        if (request.proxyAddress) {
+            var addr = request.proxyAddress + ":" + UDP_PORT;
+            address.innerText = address.textContent = addr;
+            updateConnection(addr);
+        } else {
+            // warn if proxy address not set
+            address.innerText = address.textContent = '';
+            showErrorMsg("Proxy Manager address not set.");
+        }
+    }
+}
+
+function createRequestManager() {
     // JS is reentrant, setInterval is needed for serialization of UDP
     self.reqIntervalId = setInterval(function() {
         // if UDP available, send next command
         if (!udpReqMutex && reqs.length > 0) {
             udpReqMutex = true;
-            echoClient.echo(reqs[0], function() {
-            });
-
+            try {
+                if (echoClient) {
+                    echoClient.echo(reqs[0], function() {
+                    });
+                }
+            } catch (e) {
+                showErrorMsg(e);
+                console.error("Connection error: %s", e);
+            }
             // set timer to watch for dropped UDP packets
             self.reqTimeoutId = setTimeout(function() {
                 if (udpReqMutex) {
+                    // warn if knowledge base unavailable
+                    showErrorMsg("Knowledge base response timeout.");
+                    console.error('UDP request dropped! Retrying...');
+
                     // keep request at beginning of queue for retry
-                    console.log('UDP request dropped! Retrying...');
                     udpReqMutex = false;
                 }
             }, MS_UDP_TIMEOUT);
         }
     }, MS_UDP_INTERVAL);
-});
+}
+
+function updateConnection(address) {
+    if (echoClient) {
+        disconnect();
+    } else {
+        echoClient = newEchoClient(address);
+        createRequestManager();
+    }
+}
+
+function disconnect() {
+    try {
+        echoClient.disconnect();
+    } catch (e) {
+        console.log("Can't disconnect: %s", e);
+    }
+    delete echoClient;
+    chrome.runtime.reload();
+}
 
 var newEchoClient = function(address) {
     var ec = new chromeNetworking.clients.echoClient();
     var hostnamePort = address.split(":");
     var hostname = hostnamePort[0];
     var port = (hostnamePort[1] || 7) | 0;
-    ec.connect(hostname, port, function() {
-        console.log("Connected");
-        // begin setup
-        requestTopology();
-    });
+    try {
+        ec.connect(hostname, port, function() {
+            console.log("Connected");
+            // begin setup
+            requestTopology();
+        });
+    } catch (e) {
+        showErrorMsg(e);
+        console.error("Connection error: %s", e);
+    }
     return ec;
 };
 
@@ -193,6 +180,16 @@ function sendRequest(req) {
     var data = str2ab(ab2str(toBytesUInt32(jLen)) + jSend);
     // add request to end of queue
     reqs.push(data);
+
+    // log updated queue
+    var str = '[';
+    for (var i = 0; i < reqs.length; i++) {
+        var txtSent = ab2str(reqs[i]);
+        var sent = JSON.parse(txtSent.substring(4));
+        str += sent.command + ',';
+    }
+    str += ']';
+    console.log('queue: ' + str);
 }
 
 function requestLookup() {
@@ -231,8 +228,6 @@ function requestListUpdate() {
     sendRequest({
         command : ReqCmds.GET_URLS
     });
-
-    // TODO (mwfarb): warn if knowledge base unavailable
 }
 
 function requestTopology() {
@@ -263,25 +258,17 @@ function updateUiUdpRecv(ab) {
     console.log(resp_cnt + ' recv', "'" + text + "'");
     resp_cnt++;
 
-    var str = '[';
-    for (var int = 0; int < reqs.length; int++) {
-        var txtSent = ab2str(reqs[int]);
-        var sent = JSON.parse(txtSent.substring(4));
-        str += sent.command + ',';
-    }
-    str += ']';
-    console.log('queue: ' + str);
-
     var jLen = fromBytesUInt32(str2ab(text.substring(0, 4)));
     var jData = text.substring(4);
     // check length
     if (jLen != jData.length) {
-        console.log("Lengths not equal, discarding: " + jLen + ","
+        showErrorMsg("Invalid response length.");
+        console.error("Lengths not equal, discarding: " + jLen + ","
                 + jData.length);
         return;
     }
     if (reqs.length == 0) {
-        console.log("Unexpected command, queue empty...");
+        showErrorMsg("Unexpected response, queue empty.");
         return;
     }
 
@@ -291,67 +278,28 @@ function updateUiUdpRecv(ab) {
     // validate command for format
     try {
         var res = JSON.parse(jData);
-        switch (sent.command) {
-        case ReqCmds.GET_ISD_WHITELIST:
-            if (Array.isArray(res) && (res.every(isNumber) || res.length == 0)) {
-                handleRespGetIsdWhitelist(res);
-            }
-            break;
-        case ReqCmds.GET_TOPOLOGY:
-            if (Array.isArray(res) && res[0].hasOwnProperty("a")
-                    && res[0].hasOwnProperty("b")
-                    && res[0].hasOwnProperty("ltype")) {
-                handleRespTopology(res);
-            }
-            break;
-        case ReqCmds.GET_URLS:
-            if (Array.isArray(res)) {
-                handleRespList(res);
-            }
-            break;
-        case ReqCmds.GET_URL_STATS:
-            if (!Array.isArray(res) && res.hasOwnProperty("sent_packets")
-                    && res.hasOwnProperty("received_packets")
-                    && res.hasOwnProperty("acked_packets")
-                    && res.hasOwnProperty("sent_packets")
-                    && res.hasOwnProperty("rtts")
-                    && res.hasOwnProperty("if_counts")
-                    && res.hasOwnProperty("if_lists")) {
-                handleRespLookup(res);
-            }
-            break;
-        case ReqCmds.GET_ISD_ENDPOINTS:
-            if (!Array.isArray(res) && res.hasOwnProperty("source_ISD_AS")
-                    && res.hasOwnProperty("target_ISD_AS")) {
-                handleRespGetIsdEndpoints(res);
-            }
-            break;
-        case ReqCmds.SET_ISD_WHITELIST:
-            if (!Array.isArray(res) && res.hasOwnProperty("STATUS")) {
-                handleRespSetIsdWhitelist(res);
-            }
-            break;
-        case ReqCmds.GET_LOCATIONS:
-            if (!Array.isArray(res)) {
-                handleRespLocations(res);
-            }
-            break;
-        case ReqCmds.CLEAR_URLS:
-            if (!Array.isArray(res) && res.hasOwnProperty("STATUS")) {
-                handleRespClear(res);
-            }
-            break;
-        }
+        var handled = processCmdResp(sent.command, res);
 
         // after processing remove request from beginning of queue
         reqs.shift();
 
+        if (!handled) {
+            showErrorMsg("Malformed response for " + sent.command + " command.");
+            return;
+        }
+
+        // clear any errors
+        hideErrorMsg();
+
     } catch (e) {
         if (e instanceof SyntaxError) {
-            console.log("JSON parse error: %s", e);
+            showErrorMsg("Malformed JSON repsonse.");
+            console.error("JSON parse error: %s", e);
         } else if (e instanceof TypeError) {
-            console.log("Missing parameter: %s", e);
+            showErrorMsg("Missing parameter in response.");
+            console.error("Missing parameter: %s", e);
         } else {
+            showErrorMsg("Unexpected error.");
             throw e;
         }
     } finally {
@@ -363,21 +311,59 @@ function updateUiUdpRecv(ab) {
     }
 }
 
-function handleRespTopology(res) {
-    self.jTopo = res;
-
-    // parse topology for valid ISDs
-    self.isds = [];
-    for (var l = 0; l < self.jTopo.length; l++) {
-        var iface = self.jTopo[l].a.split("-");
-        var isd = parseInt(iface[0]);
-        if (self.isds.indexOf(isd) === -1) {
-            self.isds.push(isd);
-        }
+function processCmdResp(cmd, res) {
+    switch (cmd) {
+    case ReqCmds.GET_ISD_WHITELIST:
+        return handleRespGetIsdWhitelist(res);
+    case ReqCmds.GET_TOPOLOGY:
+        return handleRespTopology(res);
+    case ReqCmds.GET_URLS:
+        return handleRespList(res);
+    case ReqCmds.GET_URL_STATS:
+        return handleRespLookup(res);
+    case ReqCmds.GET_ISD_ENDPOINTS:
+        return handleRespGetIsdEndpoints(res);
+    case ReqCmds.SET_ISD_WHITELIST:
+        return handleRespSetIsdWhitelist(res);
+    case ReqCmds.GET_LOCATIONS:
+        return handleRespLocations(res);
+    case ReqCmds.CLEAR_URLS:
+        return handleRespClear(res);
     }
-    self.isds.sort();
+    return false;
+}
 
-    // populate ISD checkbox list
+function handleRespTopology(res) {
+    if (Array.isArray(res) && res[0].hasOwnProperty("a")
+            && res[0].hasOwnProperty("b") && res[0].hasOwnProperty("ltype")) {
+        self.jTopo = res;
+
+        // parse topology for valid ISDs
+        self.isds = [];
+        for (var l = 0; l < self.jTopo.length; l++) {
+            var iface = self.jTopo[l].a.split("-");
+            var isd = parseInt(iface[0]);
+            if (self.isds.indexOf(isd) === -1) {
+                self.isds.push(isd);
+            }
+        }
+        self.isds.sort();
+
+        // populate ISD checkbox list
+        populateIsdCheckboxes();
+
+        var width = $(window).width(), height = $(window).height();
+        drawTopology(self.jTopo, width, height);
+
+        // locations should load only after topology has arrived
+        requestLocations();
+        return true;
+    } else {
+        return false;
+    }
+}
+
+function populateIsdCheckboxes() {
     var cbAllIsd = document.getElementById("ckbCheckAllIsd");
     cbAllIsd.disabled = true;
     var checkBoxesIsd = document.getElementById("checkBoxesIsd");
@@ -403,100 +389,122 @@ function handleRespTopology(res) {
             checkBoxesIsd.appendChild(label);
         }
     }
-
-    var width = $(window).width(), height = $(window).height();
-    drawTopology(self.jTopo, width, height);
-
-    // locations should load only after topology has arrived
-    requestLocations();
 }
 
 function handleRespGetIsdEndpoints(res) {
-    // Update bubble with src and dst now known
-    self.jSrc = res.source_ISD_AS;
-    self.jDst = res.target_ISD_AS;
-    map.bubbles(updateMapIsdAsBubbles(self.jSrc[0] + "-" + self.jSrc[1],
-            self.jDst[0] + "-" + self.jDst[1]));
+    if (!Array.isArray(res) && res.hasOwnProperty("source_ISD_AS")
+            && res.hasOwnProperty("target_ISD_AS")) {
+        // Update bubble with src and dst now known
+        self.jSrc = res.source_ISD_AS;
+        self.jDst = res.target_ISD_AS;
+        map.bubbles(updateMapIsdAsBubbles(self.jSrc[0] + "-" + self.jSrc[1],
+                self.jDst[0] + "-" + self.jDst[1]));
 
-    // gray out only src and dest checkboxes
-    var isAnyEnabled = false;
-    var cbLen = document.getElementsByName('cbIsd').length;
-    for (var i = 0; i < cbLen; i++) {
-        var cb = document.getElementsByName('cbIsd')[i];
-        var id = "ckbIsd" + cb.value;
-        if (cb.value == self.jSrc[0] || cb.value == self.jDst[0]) {
-            document.getElementById(id).disabled = true;
-            document.getElementById(id).checked = true;
-        } else {
-            // re enable when src and dst are known
-            document.getElementById(id).disabled = false;
-            isAnyEnabled = true;
+        // gray out only src and dest checkboxes
+        var isAnyEnabled = false;
+        var cbLen = document.getElementsByName('cbIsd').length;
+        for (var i = 0; i < cbLen; i++) {
+            var cb = document.getElementsByName('cbIsd')[i];
+            var id = "ckbIsd" + cb.value;
+            if (cb.value == self.jSrc[0] || cb.value == self.jDst[0]) {
+                document.getElementById(id).disabled = true;
+                document.getElementById(id).checked = true;
+            } else {
+                // re enable when src and dst are known
+                document.getElementById(id).disabled = false;
+                isAnyEnabled = true;
+            }
         }
-    }
-    // if all ISDs grey, no change wlist cmd
-    var cbAllIsd = document.getElementById("ckbCheckAllIsd");
-    cbAllIsd.disabled = !isAnyEnabled;
+        // if all ISDs grey, no change wlist cmd
+        var cbAllIsd = document.getElementById("ckbCheckAllIsd");
+        cbAllIsd.disabled = !isAnyEnabled;
 
-    requestGetIsdWhitelist();
+        requestGetIsdWhitelist();
+        return true;
+    } else {
+        return false;
+    }
 }
 
 function handleRespLocations(res) {
-    self.jLoc = res;
+    if (!Array.isArray(res)) {
+        self.jLoc = res;
 
-    // render blank map on load
-    initMap(getIsdFillColors(self.isds));
+        // render blank map on load
+        initMap(getIsdFillColors(self.isds));
 
-    // Show AS and ISD numbers on the map on the countries
-    map.bubbles(updateMapIsdAsBubbles());
-    map.arc(updateMapIsdAsArc());
+        // Show AS and ISD numbers on the map on the countries
+        map.bubbles(updateMapIsdAsBubbles());
+        map.arc(updateMapIsdAsArc());
 
-    // make requests only after map is loaded
-    requestGetEndpoints();
+        // make requests only after map is loaded
+        requestGetEndpoints();
+        return true;
+    } else {
+        return false;
+    }
 }
 
 function handleRespList(res) {
-    // add elements from list to accordion
-    res.forEach(function(entry) {
-        addUrlToAccordion(entry);
-    });
-    sortAccordion();
+    if (Array.isArray(res)) {
+        // add elements from list to accordion
+        res.forEach(function(entry) {
+            addUrlToAccordion(entry);
+        });
+        sortAccordion();
 
-    // begin list interval
-    self.listTimeoutId = setTimeout(function() {
-        requestListUpdate();
-    }, MS_LIST_INTERVAL);
+        // begin list interval
+        self.listTimeoutId = setTimeout(function() {
+            requestListUpdate();
+        }, MS_LIST_INTERVAL);
+        return true;
+    } else {
+        return false;
+    }
 }
 
 function handleRespLookup(res) {
-    // render socket stats data for url expanded body
-    var head = [];
-    var lrs = [];
-    for (var i = 0; i < res.loss_rates.length; i++) {
-        head.push("Path " + (i + 1));
-        lrs.push(res.loss_rates[i].toFixed(2));
-    }
-    var arrPcts = [
-            rStat('Packets Sent', (res.sent_packets ? res.sent_packets : '-')),
-            rStat('Packets Received',
-                    (res.received_packets ? res.received_packets : '-')),
-            rStat('Packets Acked',
-                    (res.acked_packets ? res.acked_packets : '-')),
-            rStat('RTTs', (res.rtts ? res.rtts : '-')),
-            rStat('Loss Rates', (lrs ? lrs : '-')), ];
-    backgroundJobs = arrPcts.concat(getInterfaceListRows(res));
-    renderStatsHeader(kBaseIndexSel, rStat("All Paths", head));
-    renderStatsBody(kBaseIndexSel);
-
-    // show the links between the countries on the map, default to last path
-    document.getElementsByName('radioPath')[res.if_lists.length].checked = true;
-    handlePathSelection(res, res.if_lists.length - 1);
-
-    // Allow user selection of path in the accordion
-    var rLen = document.getElementsByName('radioPath').length;
-    for (var i = 0; i < rLen; i++) {
-        document.getElementsByName('radioPath')[i].onclick = function() {
-            handlePathSelection(res, parseInt(this.value));
+    if (!Array.isArray(res) && res.hasOwnProperty("sent_packets")
+            && res.hasOwnProperty("received_packets")
+            && res.hasOwnProperty("acked_packets")
+            && res.hasOwnProperty("sent_packets") && res.hasOwnProperty("rtts")
+            && res.hasOwnProperty("if_counts")
+            && res.hasOwnProperty("if_lists")) {
+        // render socket stats data for url expanded body
+        var head = [];
+        var lrs = [];
+        var rtts = [];
+        for (var i = 0; i < res.loss_rates.length; i++) {
+            head.push("Path " + (i + 1));
+            lrs.push(res.loss_rates[i].toFixed(2));
+            rtts.push((res.rtts[i] / 1000).toFixed(2));
         }
+        var arrPcts = [
+                rStat('Packets Sent', (res.sent_packets ? res.sent_packets
+                        : '-')),
+                rStat('Packets Received',
+                        (res.received_packets ? res.received_packets : '-')),
+                rStat('Packets Acked', (res.acked_packets ? res.acked_packets
+                        : '-')), rStat('RTTs (ms)', (rtts ? rtts : '-')),
+                rStat('Loss Rates', (lrs ? lrs : '-')), ];
+        backgroundJobs = arrPcts.concat(getInterfaceListRows(res));
+        renderStatsHeader(kBaseIndexSel, rStat("All Paths", head));
+        renderStatsBody(kBaseIndexSel);
+
+        // show the links between the countries on the map, default to last path
+        document.getElementsByName('radioPath')[res.if_lists.length].checked = true;
+        handlePathSelection(res, res.if_lists.length - 1);
+
+        // Allow user selection of path in the accordion
+        var rLen = document.getElementsByName('radioPath').length;
+        for (var i = 0; i < rLen; i++) {
+            document.getElementsByName('radioPath')[i].onclick = function() {
+                handlePathSelection(res, parseInt(this.value));
+            }
+        }
+        return true;
+    } else {
+        return false;
     }
 }
 
@@ -509,60 +517,73 @@ function handlePathSelection(res, path) {
 }
 
 function handleRespSetIsdWhitelist(res) {
-    // TODO (mwfarb): handle error case when setting ISD fails
-
-    if (res.STATUS == 'OK') {
-        requestClear();
+    if (!Array.isArray(res) && res.hasOwnProperty("STATUS")) {
+        if (res.STATUS == 'OK') {
+            requestClear();
+        } else {
+            // handle error case when setting ISD fails
+            showErrorMsg("ISD_WHITELIST = " + res.STATUS);
+        }
+        return true;
+    } else {
+        return false;
     }
 }
 
 function clearFrontEnd() {
     clearTimeout(self.listTimeoutId);
     removeAllFromAccordion();
-    map.arc(updateMapIsdAsArc());
+    if (map) {
+        map.arc(updateMapIsdAsArc());
+    }
     restorePath();
 }
 
 function handleRespGetIsdWhitelist(res) {
-    self.jWhiteList = res;
-
-    if (self.jWhiteList.length == 0) {
+    if (Array.isArray(res) && (res.every(isNumber) || res.length == 0)) {
+        self.jWhiteList = res;
         // empty list means all in use
         var isds = self.isds;
-    } else {
-        var isds = self.jWhiteList;
-    }
-    // set checkboxes
-    for (var i = 0; i < self.isds.length; i++) {
-        var isd = self.isds[i];
-        var id = "ckbIsd" + isd;
-        if (isds.indexOf(isd) > -1) {
-            document.getElementById(id).checked = true;
-        } else {
-            document.getElementById(id).checked = false;
+        if (self.jWhiteList.length != 0) {
+            isds = self.jWhiteList;
         }
-    }
-    if (isds.length == self.isds.length) {
-        // when all isds checked, must sure 'all' is as well
-        var cbAllIsd = document.getElementById("ckbCheckAllIsd");
-        cbAllIsd.checked = true;
-    }
-    // change ISDs on map
-    map.updateChoropleth(updateMapIsdSelChoropleth(isds), {
-        reset : true
-    });
+        // set checkboxes
+        for (var i = 0; i < self.isds.length; i++) {
+            var isd = self.isds[i];
+            var id = "ckbIsd" + isd;
+            document.getElementById(id).checked = (isds.indexOf(isd) > -1);
+        }
+        if (isds.length == self.isds.length) {
+            // when all isds checked, must sure 'all' is as well
+            var cbAllIsd = document.getElementById("ckbCheckAllIsd");
+            cbAllIsd.checked = true;
+        }
+        // change ISDs on map
+        map.updateChoropleth(updateMapIsdSelChoropleth(isds), {
+            reset : true
+        });
 
-    // close setup phase
-    clearTimeout(self.listTimeoutId);
-    requestListUpdate();
+        // close setup phase
+        clearTimeout(self.listTimeoutId);
+        requestListUpdate();
+        return true;
+    } else {
+        return false;
+    }
 }
 
 function handleRespClear(res) {
-    // TODO (mwfarb): handle error case when clearing urls fails
-
-    if (res.STATUS == 'OK') {
-        clearTimeout(self.listTimeoutId);
-        requestListUpdate();
+    if (!Array.isArray(res) && res.hasOwnProperty("STATUS")) {
+        if (res.STATUS == 'OK') {
+            clearTimeout(self.listTimeoutId);
+            requestListUpdate();
+        } else {
+            // handle error case when clearing urls fails
+            showErrorMsg("CLEAR = " + res.STATUS);
+        }
+        return true;
+    } else {
+        return false;
     }
 }
 
@@ -593,77 +614,13 @@ function handleIsdWhitelistCheckedChange() {
     requestSetIsdWhitelist(isds);
 }
 
-function getInterfaceListRows(res) {
-    var rows = [];
-    var ifNum = 0;
-    var found = true;
-    var max_count = Math.max.apply(null, res.if_counts);
-    do {
-        var row = [];
-        for (var i = 0; i < res.if_lists.length; i++) {
-            if (ifNum < res.if_counts[i]) {
-                var ifRes = res.if_lists[i][ifNum];
-                row.push(ifRes.ISD + '-' + ifRes.AS + ' (' + ifRes.IFID + ')');
-            } else {
-                row.push('-');
-            }
-        }
-        rows.push(rStat('Interface ' + (ifNum + 1), (row ? row : '-')));
-        ifNum++;
-    } while (ifNum < max_count);
-    return rows;
+function showErrorMsg(msg) {
+    document.getElementById('error_msg').innerText = msg;
+    console.error(msg);
 }
 
-function sortAccordion() {
-    // Get an array of jQuery objects containing each h3 and the div
-    // that follows it
-    var entries = $.map($(".urlStatsWidget").children("h3").get(), function(
-            entry) {
-        var $entry = $(entry);
-        return $entry.add($entry.next());
-    });
-
-    // Sort the array by the h3's text
-    entries.sort(function(a, b) {
-        return a.filter("h3").text().localeCompare(b.filter("h3").text());
-    });
-
-    // Put them in the right order in the container
-    $.each(entries, function() {
-        this.detach().appendTo($(".urlStatsWidget"));
-    });
-}
-
-function addUrlToAccordion(httpReq) {
-    var header;
-    if (httpReq.length == 2) {
-        // expecting (method, path)
-        header = httpReq[0] + " " + httpReq[1] + " " + "ID_MISSING";
-    } else if (httpReq.length == 3) {
-        // expecting (conn_id, method, path)
-        header = httpReq[1] + " " + httpReq[2] + " " + httpReq[0];
-    } else {
-        console.log("Unexpected LIST element length = " + httpReq.length);
-        return;
-    }
-    $(function() {
-        // determine which elements are new
-        var foundin = $('body:contains("' + header + '")');
-        if (!foundin.length) {
-            // add urls to widget
-            var newDiv = "<h3>" + header + "</h3><div id='" + kBaseIndex
-                    + "' >"
-                    + "<table><thead></thead><tbody></tbody></table></div>";
-            $(".urlStatsWidget").append(newDiv)
-            $(".urlStatsWidget").accordion("refresh");
-            kBaseIndex++;
-        }
-    });
-}
-
-function removeAllFromAccordion() {
-    // clear the contents
-    $(".urlStatsWidget").empty();
+function hideErrorMsg() {
+    document.getElementById('error_msg').innerText = '';
 }
 
 function ab2str(ab) {
@@ -698,36 +655,6 @@ function isNumber(element, index, array) {
 // JQuery...
 
 $(function() {
-    // initialize URL accordion widget
-    $(".urlStatsWidget").accordion({
-        autoHeight : false,
-        collapsible : true,
-        active : false,
-        heightStyle : "content",
-        animate : 300,
-        activate : function(event, ui) {
-        }
-    }).sortable({
-        axis : "y",
-        handle : "h3",
-        sorting : true,
-        stop : function() {
-            stop = true;
-        }
-    });
-    $(".urlStatsWidget").on("accordionactivate", function(event, ui) {
-        if (ui.newHeader.length && ui.newPanel.length) {
-            // accordion is expanding, udp lookup
-            kBaseUrlSel = ui.newHeader[0].innerText;
-            kBaseIndexSel = ui.newPanel.attr('id');
-            console.log("activate init event: " + kBaseIndexSel);
-            requestLookup();
-        } else {
-            // when closing accordion clean path selection, keep bubbles
-            map.arc(updateMapIsdAsArc());
-            restorePath();
-        }
-    });
     // initialize ISD checkboxes
     $('#ckbCheckAllIsd').change(function() {
         handleIsdWhitelistCheckedChange();

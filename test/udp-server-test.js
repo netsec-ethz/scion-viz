@@ -22,7 +22,7 @@
  * 
  *  Additionally each response is delayed by 1/2 seconds.
  * 
- *  Listens on port 7777 by default. Pass in a desired port as cmdline argument.
+ *  Pass in a desired address and port as cmdline argument.
  */
 
 // UDP request commands
@@ -41,19 +41,22 @@ var dgram = require('dgram');
 var server = dgram.createSocket('udp4');
 
 var DEF_TOPOLOGY = "d";
-var DEF_THRESHOLD = 0.99
-var UDP_PORT = 7777;
+var DEF_THRESHOLD = 0.99;
+var DEF_ADDR = '127.0.0.1';
+var DEF_PORT = 7777;
 
-if (process.argv.length <= 3) {
+if (process.argv.length <= 5) {
     console.log("Usage: " + __filename
-            + " d|w|t[topology] 0-1[drop rate<float>]");
+            + " address port d|w|t[topology] 0-1[drop rate<float>]");
     process.exit(-1);
 }
 
 var args = process.argv.slice(2);
-var test = (args.length > 0) ? args[0] : DEF_TOPOLOGY;
-var threshold = (args.length > 1) ? parseFloat(args[1]) : DEF_THRESHOLD;
-console.log('Param: ' + test + ' ' + threshold);
+var address = (args.length > 0) ? args[0] : DEF_ADDR;
+var port = (args.length > 1) ? parseInt(args[1]) : DEF_PORT;
+var test = (args.length > 2) ? args[2] : DEF_TOPOLOGY;
+var threshold = (args.length > 3) ? parseFloat(args[3]) : DEF_THRESHOLD;
+console.log('Param: ' + address + ' ' + port + ' ' + test + ' ' + threshold);
 
 server.on("listening", function() {
     var address = server.address();
@@ -75,7 +78,7 @@ server.on("message", function(message, rinfo) {
 
     // check length
     if (jLen != jData.length) {
-        console.log("Lengths not equal, discarding: " + jLen + ","
+        console.error("Lengths not equal, discarding: " + jLen + ","
                 + jData.length);
         return;
     }
@@ -130,11 +133,20 @@ server.on("message", function(message, rinfo) {
     }, delay);
 });
 
+server.on("error", function(err) {
+    console.error('server error:\n${err.stack}');
+    server.close();
+});
+
 server.on("close", function() {
     console.log("Socket closed");
 });
 
-server.bind(UDP_PORT);
+server.bind({
+    address : address,
+    port : port,
+    exclusive : false,
+});
 
 function createRandomLookup() {
     var u = {};
