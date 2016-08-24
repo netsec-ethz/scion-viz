@@ -26,6 +26,7 @@ var reqs_cnt = 0;
 var resp_cnt = 0;
 var reqs = [];
 var udpReqMutex = false;
+var echoClient = null;
 
 // UDP request commands
 var ReqCmds = {
@@ -39,15 +40,10 @@ var ReqCmds = {
     CLEAR_URLS : 'CLEAR',
 };
 
-window.onload = function() {
-}
-
 // UDP sockets...
 
 console.debug = function() {
 };
-
-var echoClient = null;
 
 chrome.runtime.onMessageExternal.addListener(function(request, sender,
         sendResponse) {
@@ -352,7 +348,13 @@ function handleRespTopology(res) {
         // populate ISD checkbox list
         populateIsdCheckboxes();
 
-        var width = $(window).width(), height = $(window).height();
+        var rect = document.getElementById("TopologyGraph")
+                .getBoundingClientRect();
+        var width = rect.width;
+        var height = rect.height;
+        if (height < 600) {
+            height = 600;
+        }
         drawTopology(self.jTopo, width, height);
 
         // locations should load only after topology has arrived
@@ -397,8 +399,8 @@ function handleRespGetIsdEndpoints(res) {
         // Update bubble with src and dst now known
         self.jSrc = res.source_ISD_AS;
         self.jDst = res.target_ISD_AS;
-        map.bubbles(updateMapIsdAsBubbles(self.jSrc[0] + "-" + self.jSrc[1],
-                self.jDst[0] + "-" + self.jDst[1]));
+        updateMapAsMarkers(self.jSrc[0] + "-" + self.jSrc[1], self.jDst[0]
+                + "-" + self.jDst[1]);
 
         // gray out only src and dest checkboxes
         var isAnyEnabled = false;
@@ -419,6 +421,11 @@ function handleRespGetIsdEndpoints(res) {
         var cbAllIsd = document.getElementById("ckbCheckAllIsd");
         cbAllIsd.disabled = !isAnyEnabled;
 
+        topoSetup({
+            "source" : self.jSrc[0] + "-" + self.jSrc[1],
+            "destination" : self.jDst[0] + "-" + self.jDst[1]
+        });
+
         requestGetIsdWhitelist();
         return true;
     } else {
@@ -431,11 +438,11 @@ function handleRespLocations(res) {
         self.jLoc = res;
 
         // render blank map on load
-        initMap(getIsdFillColors(self.isds));
+        initMap(self.isds);
 
         // Show AS and ISD numbers on the map on the countries
-        map.bubbles(updateMapIsdAsBubbles());
-        map.arc(updateMapIsdAsArc());
+        updateMapAsMarkers();
+        updateMapAsLinks();
 
         // make requests only after map is loaded
         requestGetEndpoints();
@@ -509,7 +516,7 @@ function handleRespLookup(res) {
 }
 
 function handlePathSelection(res, path) {
-    map.arc(updateMapIsdAsArc(res, path));
+    updateMapAsLinks(res, path);
 
     // 160315 yskim added
     restorePath();
@@ -533,9 +540,7 @@ function handleRespSetIsdWhitelist(res) {
 function clearFrontEnd() {
     clearTimeout(self.listTimeoutId);
     removeAllFromAccordion();
-    if (map) {
-        map.arc(updateMapIsdAsArc());
-    }
+    updateMapAsLinks();
     restorePath();
 }
 
@@ -559,9 +564,7 @@ function handleRespGetIsdWhitelist(res) {
             cbAllIsd.checked = true;
         }
         // change ISDs on map
-        map.updateChoropleth(updateMapIsdSelChoropleth(isds), {
-            reset : true
-        });
+        updateMapIsdRegions(isds);
 
         // close setup phase
         clearTimeout(self.listTimeoutId);
@@ -596,9 +599,7 @@ function handleIsdWhitelistCheckedChange() {
             isds.push(parseInt(cb.value));
         }
     }
-    map.updateChoropleth(updateMapIsdSelChoropleth(isds), {
-        reset : true
-    });
+    updateMapIsdRegions(isds);
 
     // when all isds checked, must sure 'all' is as well
     var cbAllIsd = document.getElementById("ckbCheckAllIsd");
@@ -660,16 +661,13 @@ $(function() {
         handleIsdWhitelistCheckedChange();
     });
 });
-$(window).resize(function() {
-    // give topology more room
-    if (typeof self.jTopo !== "undefined") {
-        var width = $(window).width(), height = $(window).height();
-        drawTopology(self.jTopo, width, height);
-    }
-});
+
 // wait for DOM load
 $(document).ready(
         function() {
+
+            initResizeablePanels();
+
             // check/uncheck all ISDs that are enabled
             $("#ckbCheckAllIsd").click(
                     function() {
@@ -713,3 +711,33 @@ $(document).ready(
                         });
                     });
         });
+
+function initResizeablePanels() {
+    // init resizable panels
+    var bheight = $("#divResizable").height();
+    var nbpanels = $(".vpanel").size();
+    var pad = 0;// 2.5;
+    $(".vpanel").height((bheight / nbpanels) - (nbpanels * pad - 2 * pad));
+    $(".vpanel").resizable(
+            {
+                handles : {
+                    's' : '#handle'
+                },
+                minHeight : 100,
+                resize : function(event, ui) {
+                    var curheight = ui.size.height;
+                    // set the content panel height
+                    $(".vpanel").height(
+                            ((bheight - curheight + pad) / (nbpanels - 1))
+                                    - ((nbpanels - 1) * pad));
+                    $(this).height(curheight);
+
+                    // now, reset topo window
+                    resize_topology();
+                }
+            });
+}
+
+$(window).resize(function() {
+    initResizeablePanels();
+});
