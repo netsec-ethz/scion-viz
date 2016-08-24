@@ -197,8 +197,10 @@ $(function() {
             console.log("activate init event: " + kBaseIndexSel);
             requestLookup();
         } else {
+            if (validTopoLocations(self.jLoc)) {
+                updateMapAsLinks();
+            }
             // when closing accordion clean path selection, keep bubbles
-            map.arc(updateMapIsdAsArc());
             restorePath();
         }
     });
