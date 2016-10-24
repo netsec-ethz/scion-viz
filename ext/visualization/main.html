@@ -35,6 +35,7 @@
 <script src="./topology.js"></script>
 <script src="./tab-topocola.js"></script>
 <script src="./location.js"></script>
+<script src="./tab-location.js"></script>
 <script src="./tab-g-maps.js"></script>
 <script src="./main.js"></script>
 </head>
@@ -64,6 +65,11 @@
      id="error_msg" style="font-weight: bold; color: red;"></span> <br>
     <br>
     <div id="divConfigList">
+     <form action="">
+      Location Map: <input type="radio" name="map" value="dynamic"
+       checked="checked"> Dynamic <input type="radio" name="map"
+       value="static"> Static
+     </form>
      <div>
       ISD Whitelist: <input type="checkbox" id="ckbCheckAllIsd" /> <label>All
        ISDs </label>
@@ -87,7 +93,6 @@
      <li><a href='#tabLocation'>Location</a></li>
     </ul>
     <div id='tabLocation'>
-     <div id="map-canvas"></div>
      <webview id="g-map" src="./map.html" partition="google-maps"></webview>
     </div>
     <div id='tabTopology'>

@@ -3,6 +3,7 @@
  "name": "SCION Visualization",
  "version": "0.1",
  "manifest_version": 2,
+ "minimum_chrome_version": "33",
  "description": "Display link data from the SCION network proxy.",
  "app": {
   "background": {
@@ -44,6 +45,5 @@
   ]
  },
  "permissions": [
-  "webview"
- ]
+  "webview" ]
 }

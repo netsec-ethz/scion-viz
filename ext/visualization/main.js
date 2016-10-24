@@ -436,20 +436,48 @@ function handleRespGetIsdEndpoints(res) {
 function handleRespLocations(res) {
     if (!Array.isArray(res)) {
         self.jLoc = res;
-
-        // render blank map on load
-        initMap(self.isds);
-
-        // Show AS and ISD numbers on the map on the countries
-        updateMapAsMarkers();
-        updateMapAsLinks();
-
-        // make requests only after map is loaded
-        requestGetEndpoints();
+        updateMapResources();
         return true;
     } else {
         return false;
     }
+}
+
+function updateMapResources() {
+    var radios = document.getElementsByName("map");
+    var val;
+    for (var i = 0; i < radios.length; i++) {
+        if (radios[i].checked) {
+            radios[i].checked = true;
+            if (radios[i].value == 'dynamic') {
+                // show g-map, remove d-map
+                if (d_map) {
+                    $("#d-map").remove();
+                    $("#tabLocation")
+                            .append(
+                                    "<webview id='g-map' src='./map.html' partition='google-maps'></webview>");
+                }
+                d_map = null;
+                initGMap(self.isds);
+
+            } else if (radios[i].value == 'static') {
+                // show d-map, remove g-map
+                if (wv_map) {
+                    $("#g-map").remove();
+                    $("#tabLocation").append("<div id='d-map'></div>");
+                }
+                wv_map = null;
+                initDMap(self.isds);
+            }
+        }
+    }
+
+    // Show AS and ISD numbers on the map on the countries
+    updateMapAsMarkers();
+    updateMapAsLinks();
+
+    // make requests only after map is loaded
+    requestGetEndpoints();
 }
 
 function handleRespList(res) {
@@ -656,6 +684,26 @@ function isNumber(element, index, array) {
 // JQuery...
 
 $(function() {
+    // if you have any radio selected by default
+    $('[name="map"]:checked').addClass('selected');
+});
+$(document).on(
+        'click',
+        '[name="map"]',
+        function() {
+            if (!$(this).hasClass('selected')) {
+                var $selected = $('.selected[name="map"]');
+                if ($selected.length != 0) {
+                    console.log("radio box with value " + $selected.val()
+                            + " was deselected");
+                    $selected.removeClass('selected');
+                    updateMapResources();
+                }
+            }
+            $(this).addClass('selected');
+        });
+
+$(function() {
     // initialize ISD checkboxes
     $('#ckbCheckAllIsd').change(function() {
         handleIsdWhitelistCheckedChange();
@@ -665,7 +713,6 @@ $(function() {
 // wait for DOM load
 $(document).ready(
         function() {
-
             initResizeablePanels();
 
             // check/uncheck all ISDs that are enabled
