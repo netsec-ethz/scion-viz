@@ -4,8 +4,8 @@
 
 /**
  * @fileoverview This file implements the ProxyFormController class, which wraps
- *                   a form element with logic that enables implementation of proxy
- *                   settings.
+ *               a form element with logic that enables implementation of proxy
+ *               settings.
  * 
  * @author mkwst@google.com (Mike West)
  * @author mwfarb@cmu.edu (Michael Farb): Added SCION proxy settings.
@@ -13,6 +13,7 @@
 
 var SCION_HOST = '127.0.0.1';
 var SCION_PORT = 8080;
+var VIZ_APP_ID = "bogdaeienjhpdgpnmhenbgkjkglcbdok";
 
 /**
  * Wraps the proxy configuration form, binding proper handlers to its various
@@ -20,7 +21,7 @@ var SCION_PORT = 8080;
  * response to user events.
  * 
  * @param {string}
- *                id The form's DOM ID.
+ *            id The form's DOM ID.
  * @constructor
  */
 var ProxyFormController = function(id) {
@@ -121,7 +122,7 @@ ProxyFormController.getPersistedSettings = function() {
  * Persists proxy settings across restarts.
  * 
  * @param {!ProxyConfig}
- *                config The proxy config to persist.
+ *            config The proxy config to persist.
  * @static
  */
 ProxyFormController.setPersistedSettings = function(config) {
@@ -157,7 +158,7 @@ ProxyFormController.prototype = {
 
   /**
      * @param {!string}
-     *                value The PAC file URL.
+     *            value The PAC file URL.
      */
   set pacURL(value) {
     document.getElementById('autoconfigURL').value = value;
@@ -174,7 +175,7 @@ ProxyFormController.prototype = {
 
   /**
      * @param {!string}
-     *                value The PAC file data.
+     *            value The PAC file data.
      */
   set manualPac(value) {
     document.getElementById('autoconfigData').value = value;
@@ -192,8 +193,8 @@ ProxyFormController.prototype = {
 
   /**
      * @param {?Array
-     *                <string>} data A list of hostnames that should bypass the
-     *                proxy. If empty, the bypass list is emptied.
+     *            <string>} data A list of hostnames that should bypass the
+     *            proxy. If empty, the bypass list is emptied.
      */
   set bypassList(data) {
     if (!data)
@@ -216,8 +217,8 @@ ProxyFormController.prototype = {
   /**
      * @see http://code.google.com/chrome/extensions/trunk/proxy.html
      * @param {?ProxyServer}
-     *                data An object containing the proxy server host, port, and
-     *                scheme. If null, the single proxy checkbox will be unchecked.
+     *            data An object containing the proxy server host, port, and
+     *            scheme. If null, the single proxy checkbox will be unchecked.
      */
   set singleProxy(data) {
     var checkbox = document.getElementById('singleProxyForEverything');
@@ -243,8 +244,8 @@ ProxyFormController.prototype = {
 
   /**
      * @param {?ProxyServer}
-     *                data An object containing the proxy server host, port, and
-     *                scheme. If empty, empties the proxy setting.
+     *            data An object containing the proxy server host, port, and
+     *            scheme. If empty, empties the proxy setting.
      */
   set httpProxy(data) {
     this.setProxyImpl_('Http', data);
@@ -262,8 +263,8 @@ ProxyFormController.prototype = {
 
   /**
      * @param {?ProxyServer}
-     *                data An object containing the proxy server host, port, and
-     *                scheme. If empty, empties the proxy setting.
+     *            data An object containing the proxy server host, port, and
+     *            scheme. If empty, empties the proxy setting.
      */
   set httpsProxy(data) {
     this.setProxyImpl_('Https', data);
@@ -281,8 +282,8 @@ ProxyFormController.prototype = {
 
   /**
      * @param {?ProxyServer}
-     *                data An object containing the proxy server host, port, and
-     *                scheme. If empty, empties the proxy setting.
+     *            data An object containing the proxy server host, port, and
+     *            scheme. If empty, empties the proxy setting.
      */
   set ftpProxy(data) {
     this.setProxyImpl_('Ftp', data);
@@ -300,8 +301,8 @@ ProxyFormController.prototype = {
 
   /**
      * @param {?ProxyServer}
-     *                data An object containing the proxy server host, port, and
-     *                scheme. If empty, empties the proxy setting.
+     *            data An object containing the proxy server host, port, and
+     *            scheme. If empty, empties the proxy setting.
      */
   set fallbackProxy(data) {
     this.setProxyImpl_('Fallback', data);
@@ -310,8 +311,8 @@ ProxyFormController.prototype = {
 
   /**
      * @param {string}
-     *                type The type of proxy that's being set ("Http", "Https",
-     *                etc.).
+     *            type The type of proxy that's being set ("Http", "Https",
+     *            etc.).
      * @return {?ProxyServer} An object containing the proxy server host, port,
      *         and scheme.
      * @private
@@ -331,11 +332,11 @@ ProxyFormController.prototype = {
      * 
      * @see http://code.google.com/chrome/extensions/trunk/proxy.html
      * @param {string}
-     *                type The type of proxy that's being set ("Http", "Https",
-     *                etc.).
+     *            type The type of proxy that's being set ("Http", "Https",
+     *            etc.).
      * @param {?ProxyServer}
-     *                data An object containing the proxy server host, port, and
-     *                scheme. If empty, empties the proxy setting.
+     *            data An object containing the proxy server host, port, and
+     *            scheme. If empty, empties the proxy setting.
      * @private
      */
   setProxyImpl_: function(type, data) {
@@ -367,7 +368,7 @@ ProxyFormController.prototype = {
      * proxy state.
      * 
      * @param {boolean}
-     *                state The state of incognito access.
+     *            state The state of incognito access.
      * @private
      */
   handleIncognitoAccessResponse_: function(state) {
@@ -384,7 +385,7 @@ ProxyFormController.prototype = {
      * Handles the response from 'proxy.settings.get' for regular settings.
      * 
      * @param {ProxyFormController.WrappedProxyConfig}
-     *                c The proxy data and extension's level of control thereof.
+     *            c The proxy data and extension's level of control thereof.
      * @private
      */
   handleRegularState_: function(c) {
@@ -401,7 +402,7 @@ ProxyFormController.prototype = {
      * Handles the response from 'proxy.settings.get' for incognito settings.
      * 
      * @param {ProxyFormController.WrappedProxyConfig}
-     *                c The proxy data and extension's level of control thereof.
+     *            c The proxy data and extension's level of control thereof.
      * @private
      */
   handleIncognitoState_: function(c) {
@@ -433,7 +434,7 @@ ProxyFormController.prototype = {
      * handler.
      * 
      * @param {Event}
-     *                e The event to be handled.
+     *            e The event to be handled.
      * @private
      * @return {boolean} True if the event should bubble, false otherwise.
      */
@@ -452,7 +453,7 @@ ProxyFormController.prototype = {
       return this.toggleSingleProxyConfig_(e);
 
     // Case 3: "Flip to incognito mode."
-    } else if (t.nodeName === 'BUTTON'  && t.getAttribute('value') === 'incognito'  ) {
+    } else if (t.nodeName === 'BUTTON') {
       return this.toggleIncognitoMode_(e);
 
     // Case 4: Click on something random: maybe changing active config group?
@@ -486,7 +487,7 @@ ProxyFormController.prototype = {
      * Sets the form's active config group.
      * 
      * @param {DOMElement}
-     *                fieldset The configuration group to activate.
+     *            fieldset The configuration group to activate.
      * @private
      */
   changeActive_: function(fieldset) {
@@ -538,7 +539,7 @@ ProxyFormController.prototype = {
      * new values.
      * 
      * @param {Event}
-     *                e DOM event generated by the user's click.
+     *            e DOM event generated by the user's click.
      * @private
      */
   applyChanges_: function(e) {
@@ -554,6 +555,22 @@ ProxyFormController.prototype = {
         {value: this.config_.regular, scope: 'regular'},
         this.callbackForRegularSettings_.bind(this));
     chrome.extension.sendRequest({type: 'clearError'});
+        
+    // send an update for current proxy address
+    var c = this.config_.regular;
+    if (this.config_.incognito) {
+      c = this.config_.incognito;
+    }
+    var proxyAddr = null;
+    if (c.mode === 'fixed_servers' && c.rules && c.rules.singleProxy) {
+      proxyAddr = c.rules.singleProxy.host;
+    }
+    chrome.runtime.sendMessage(VIZ_APP_ID, {
+        proxyAddress : proxyAddr
+    }, function(response) {
+        console.log(JSON.stringify(response));
+        return true;
+    });
   },
 
   /**
@@ -598,9 +615,9 @@ ProxyFormController.prototype = {
      * popup after a short delay.
      * 
      * @param {string}
-     *                msg The message to be displayed in the overlay.
+     *            msg The message to be displayed in the overlay.
      * @param {?boolean}
-     *                close Should the window be closed? Defaults to true.
+     *            close Should the window be closed? Defaults to true.
      * @private
      */
   generateAlert_: function(msg, close) {
@@ -616,7 +633,7 @@ ProxyFormController.prototype = {
         success.classList.remove('visible');
       else
         window.close();
-    }, 4000);
+    }, 2000);
   },
 
 
@@ -679,7 +696,7 @@ ProxyFormController.prototype = {
      * when that field is clicked.
      * 
      * @param {Event}
-     *                e The `click` event to respond to.
+     *            e The `click` event to respond to.
      * @private
      */
   toggleSingleProxyConfig_: function(e) {
@@ -704,14 +721,14 @@ ProxyFormController.prototype = {
     return this.form_.parentNode.classList.contains('incognito');
   },
 
-    
+
   /**
      * Toggles the form's incognito mode. Saves the current state to an object
      * property for later use, clears the form, and toggles the appropriate
      * state.
      * 
      * @param {Event}
-     *                e The `click` event to respond to.
+     *            e The `click` event to respond to.
      * @private
      */
   toggleIncognitoMode_: function(e) {
@@ -752,7 +769,7 @@ ProxyFormController.prototype = {
      * Sets the form's values based on a ProxyConfig.
      * 
      * @param {!ProxyConfig}
-     *                c The ProxyConfig object.
+     *            c The ProxyConfig object.
      * @private
      */
   recalcFormValues_: function(c) {
@@ -806,8 +823,8 @@ ProxyFormController.prototype = {
      * extension with higher priority.
      * 
      * @param {ProxyFormController.LevelOfControl}
-     *                l The level of control this extension has over the proxy
-     *                settings.
+     *            l The level of control this extension has over the proxy
+     *            settings.
      * @private
      */
   handleLackOfControl_: function(l) {
@@ -836,8 +853,8 @@ ProxyFormController.prototype = {
      * Handles response from ProxyErrorHandler
      * 
      * @param {{result:
-     *                !string}} response The message sent in response to this
-     *                popup's request.
+     *            !string}} response The message sent in response to this
+     *            popup's request.
      */
   handleProxyErrorHandlerResponse_: function(response) {
     if (response.result !== null) {

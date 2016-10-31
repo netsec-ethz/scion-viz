@@ -186,6 +186,7 @@ text {
 <script src="js/datamaps.world.hires.min.js"></script>
 <script src="data/map-data.js"></script>
 <script src="./networking.js"></script>
+<script src="./tab-stats.js"></script>
 <script src="./tab-topoweb.js"></script>
 <script src="./tab-location.js"></script>
 <script src="./main.js"></script>
@@ -204,22 +205,28 @@ text {
       the desired URL below and change the Path radio button.</li>
      <li><span style="font-weight: bold;">Topology
        Orientation:</span> Click and drag any node to the desired position.</li>
+     <li><span style="font-weight: bold;">Stats Host:</span>
+      Address auto-detected from Proxy Manager.</li>
+     </li>
     </ul>
    </div>
   </div>
   <div id="divConfig">
-   <span style="font-weight: bold;">Configuration:</span><br> <br>
+   <span style="font-weight: bold;">Configuration:</span> <span
+    id="error_msg" style="font-weight: bold; color: red;"></span><br>
+   <br>
    <div id="divConfigList">
     <div>
-     ISD Whitelist:<br /> <input type="checkbox" id="ckbCheckAllIsd" /><label>All
-      ISDs</label> <br />
+     ISD Whitelist: <input type="checkbox" id="ckbCheckAllIsd" /><label>All
+      ISDs</label>
      <div id="checkBoxesIsd"></div>
     </div>
-    <p></p>
     <div>
-     <input id="connect" value="Reconnect UDP" type="button"> <input
-      id="get_urls" value="Update Stats" type="button"> <input
-      id="clear_urls" value="Clear Stats" type="button">
+     Stats Host: <span id="address" style="font-weight: bold;"></span><br>
+    </div>
+    <div>
+     <input id="list" value="Update Stats" type="button"> <input
+      id="clear" value="Clear Stale Stats" type="button">
     </div>
    </div>
   </div>
@@ -237,14 +244,6 @@ text {
   </div>
   <div id="divStats">
    <span style="font-weight: bold;">Socket Proxy Data:</span><br>
-   <div id="divResume" style="display: none;">
-    <p>Now, after updating the ISD Whitelist, please refresh your
-     browser pages to allow packets to traverse the new network
-     configuration. Then, close this window and reopen it to see the new
-     proxy results.</p>
-    <input id="resume" value="Resume Proxy Stats" type="button"
-     style="display: none;">
-   </div>
    <div id="divStatsWidget" class="urlStatsWidget"></div>
   </div>
  </div>

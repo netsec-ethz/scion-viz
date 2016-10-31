@@ -22,23 +22,41 @@
  * 
  *  Additionally each response is delayed by 1/2 seconds.
  * 
- *  Listens on port 7777 by default. Pass in a desired port as cmdline argument.
+ *  Pass in a desired address and port as cmdline argument.
  */
+
+// UDP request commands
+var ReqCmds = {
+    GET_URL_STATS : 'LOOKUP',
+    GET_URLS : 'LIST',
+    GET_TOPOLOGY : 'TOPO',
+    GET_LOCATIONS : 'LOCATIONS',
+    SET_ISD_WHITELIST : 'ISD_WHITELIST',
+    GET_ISD_WHITELIST : 'GET_ISD_WHITELIST',
+    GET_ISD_ENDPOINTS : 'GET_ISD_ENDPOINTS',
+    CLEAR_URLS : 'CLEAR',
+};
 
 var dgram = require('dgram');
 var server = dgram.createSocket('udp4');
 
-var threshold = 0.99;
-var UDP_PORT = 7777;
+var DEF_TOPOLOGY = "d";
+var DEF_THRESHOLD = 0.99;
+var DEF_ADDR = '127.0.0.1';
+var DEF_PORT = 7777;
 
-if (process.argv.length <= 2) {
-    console.log("Usage: " + __filename + " d|w|t");
+if (process.argv.length <= 5) {
+    console.log("Usage: " + __filename
+            + " address port d|w|t[topology] 0-1[drop rate<float>]");
     process.exit(-1);
 }
 
 var args = process.argv.slice(2);
-var test = (args.length > 0) ? args[0] : "d";
-console.log('Param: ' + test);
+var address = (args.length > 0) ? args[0] : DEF_ADDR;
+var port = (args.length > 1) ? parseInt(args[1]) : DEF_PORT;
+var test = (args.length > 2) ? args[2] : DEF_TOPOLOGY;
+var threshold = (args.length > 3) ? parseFloat(args[3]) : DEF_THRESHOLD;
+console.log('Param: ' + address + ' ' + port + ' ' + test + ' ' + threshold);
 
 server.on("listening", function() {
     var address = server.address();
@@ -60,7 +78,7 @@ server.on("message", function(message, rinfo) {
 
     // check length
     if (jLen != jData.length) {
-        console.log("Lengths not equal, discarding: " + jLen + ","
+        console.error("Lengths not equal, discarding: " + jLen + ","
                 + jData.length);
         return;
     }
@@ -71,7 +89,7 @@ server.on("message", function(message, rinfo) {
     var dataRoot = __dirname + '/data/';
 
     // add dummy parameters before echoing back
-    if (rc.command == 'LOOKUP') {
+    if (rc.command == ReqCmds.GET_URL_STATS) {
         switch (getRandomInt(0, 2)) {
         default:
         case 0:
@@ -81,23 +99,25 @@ server.on("message", function(message, rinfo) {
             jData = loadTestData(dataRoot + 'lookup-' + test + '-isd1.json');
             break;
         }
-    } else if (rc.command == 'LIST') {
+    } else if (rc.command == ReqCmds.GET_URLS) {
         var reqs = JSON.parse(loadTestData(dataRoot + 'list.json'));
         var lu = [];
-        lu.push(reqs[getRandomInt(0, 10)]);
-        lu.push(reqs[getRandomInt(0, 10)]);
-        lu.push(reqs[getRandomInt(0, 10)]);
+        lu.push(reqs[getRandomInt(0, 15)]);
+        lu.push(reqs[getRandomInt(0, 15)]);
+        lu.push(reqs[getRandomInt(0, 15)]);
         jData = JSON.stringify(lu);
-    } else if (rc.command == 'ISD_WHITELIST') {
+    } else if (rc.command == ReqCmds.SET_ISD_WHITELIST) {
         jData = loadTestData(dataRoot + 'isd_whitelist.json');
-    } else if (rc.command == 'GET_ISD_WHITELIST') {
+    } else if (rc.command == ReqCmds.GET_ISD_WHITELIST) {
         jData = loadTestData(dataRoot + 'get_isd_whitelist-' + test + '.json');
-    } else if (rc.command == 'GET_ISD_ENDPOINTS') {
+    } else if (rc.command == ReqCmds.GET_ISD_ENDPOINTS) {
         jData = loadTestData(dataRoot + 'get_isd_endpoints-' + test + '.json');
-    } else if (rc.command == 'TOPO') {
+    } else if (rc.command == ReqCmds.GET_TOPOLOGY) {
         jData = loadTestData(dataRoot + 'topo-' + test + '.json');
-    } else if (rc.command == 'LOCATIONS') {
+    } else if (rc.command == ReqCmds.GET_LOCATIONS) {
         jData = loadTestData(dataRoot + 'locations-' + test + '.json');
+    } else if (rc.command == ReqCmds.CLEAR_URLS) {
+        jData = loadTestData(dataRoot + 'list_clear.json');
     }
 
     var buf = new Buffer(4);
@@ -113,11 +133,20 @@ server.on("message", function(message, rinfo) {
     }, delay);
 });
 
+server.on("error", function(err) {
+    console.error('server error:\n${err.stack}');
+    server.close();
+});
+
 server.on("close", function() {
     console.log("Socket closed");
 });
 
-server.bind(UDP_PORT);
+server.bind({
+    address : address,
+    port : port,
+    exclusive : false,
+});
 
 function createRandomLookup() {
     var u = {};

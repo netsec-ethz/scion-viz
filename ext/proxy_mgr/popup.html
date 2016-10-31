@@ -1,28 +1,22 @@
 <!doctype html>
 <html>
 <head>
-<title>Popup for Proxy API</title>
+<title>Popup for SCION Proxy Manager</title>
 <link href="css/popup.css" type="text/css" rel="stylesheet">
 </head>
 <body>
- <h1>Proxy Configuration</h1>
+ <h1>SCION Proxy Manager</h1>
  <div role="main">
   <form id="proxyForm">
    <fieldset id="scion">
     <legend>SCION Settings</legend>
     <input type="radio" name="proxyType" id="proxyTypeScion"
-     value="scion"> <label for="proxyTypeScion">Use <em>SCION
-      proxy settings</em>. i.e. 127.0.0.1 and port 8080 for all protocols.
+     value="scion"> <label for="proxyTypeScion">Use <em>default
+      SCION proxy settings</em>. i.e. 127.0.0.1 and port 8080 for all
+     protocols.
     </label>
    </fieldset>
-   <fieldset id="system">
-    <legend>System Settings</legend>
-    <input type="radio" name="proxyType" id="proxyTypeSystem"
-     value="system"> <label for="proxyTypeSystem">Use
-     the <em>system's proxy settings</em>.
-    </label>
-   </fieldset>
-   <fieldset id="direct">
+   <fieldset id="direct" style="display: none;">
     <legend>Direct Connection</legend>
     <input type="radio" name="proxyType" id="proxyTypeDirect"
      value="direct"> <label for="proxyTypeDirect">Your
@@ -30,12 +24,13 @@
      for a proxy.
     </label>
    </fieldset>
-   <fieldset id="pac_script">
+   <fieldset id="pac_script" style="display: none;">
     <legend>Automatic Configuration</legend>
     <input type="radio" name="proxyType" id="proxyTypeAutoconfig"
      value="autoconfig"> <label for="proxyTypeAutoconfig">Your
      proxy supports <em>automatic configuration</em>.
     </label>
+
     <section>
      <label for="autoconfigURL">Autoconfiguration URL (PAC file)</label>
      <input type="url" name="autoconfigURL" id="autoconfigURL">
@@ -58,6 +53,7 @@
        <option value="socks4">socks4://</option>
        <option value="socks5">socks5://</option>
       </select> <input type="text" name="proxyHostHttp" id="proxyHostHttp">
+
       <label for="proxyPortHttp">Port</label> <input type="text"
        name="proxyPortHttp" id="proxyPortHttp" class="port"> <input
        type="checkbox" name="singleProxyForEverything"
@@ -74,6 +70,7 @@
        <option value="socks4">socks4://</option>
        <option value="socks5">socks5://</option>
       </select> <input type="text" name="proxyHostHttps" id="proxyHostHttps">
+
       <label for="proxyPortHttps">Port</label> <input type="text"
        name="proxyPortHttps" id="proxyPortHttps" class="port">
      </fieldset>
@@ -86,6 +83,7 @@
        <option value="socks4">socks4://</option>
        <option value="socks5">socks5://</option>
       </select> <input type="text" name="proxyHostFtp" id="proxyHostFtp">
+
       <label for="proxyPortFtp">Port</label> <input type="text"
        name="proxyPortFtp" id="proxyPortFtp" class="port">
      </fieldset>
@@ -108,6 +106,13 @@
        placeholder="<local>,192.168.1.1/16, .example.com"></textarea>
      </fieldset>
     </section>
+   </fieldset>
+   <fieldset id="system">
+    <legend>System Settings</legend>
+    <input type="radio" name="proxyType" id="proxyTypeSystem"
+     value="system"> <label for="proxyTypeSystem">Use
+     the <em>system's proxy settings</em>.
+    </label>
    </fieldset>
    <input type="submit" value="Save proxy settings">
    <button value="incognito">Configure incognito window
