@@ -23,3 +23,4 @@ To launch the proxy and knowledge-base (each run):
 1. `endhost/scion_proxy.py -p 9090 -s -k`
 1. Launch the SCION Visualization app by opening a new tab and clicking on the Apps button in the top left of the window. This can also be done by going to [chrome://apps](chrome://apps).
 1. Click on any URL in the SCION Visualization app window to view SCION statistics.
+
