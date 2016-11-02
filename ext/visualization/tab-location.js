@@ -14,22 +14,20 @@
  * limitations under the License.
  */
 
-var C_MAP_COUNDEF = '#EEEEEE';
-var C_MAP_COUN = '#3366CC';
-var C_MAP_COUN_SEL = '#CCCCCC';
-var C_MAP_PATH_TOPO = '#999999';
-var C_MAP_PATH_ACTIVE = '#FF0000';
-var C_MAP_ISD_BRD = '#FFFFFF';
+var d_map = null;
 
-var C_MAP_ISDS = [ '#0099FF', '#FF9900', '#FF0099', '#9900FF', '#00FF99',
-        '#99FF00' ];
-
-var map;
-
-function initMap(fillColors) {
-    map = new Datamap({
+/**
+ * Synchronously initializes the Datamaps object with the Datamaps API and
+ * renders map for the first time.
+ * 
+ * @param isds
+ *            A numeric array of ISD numbers used to render the map legend.
+ */
+function initDMap(isds) {
+    fillColors = getIsdFillColors(isds);
+    d_map = new Datamap({
         scope : 'world',
-        element : document.getElementById("interactiveMap"),
+        element : document.getElementById("d-map"),
         responsive : true,
         setProjection : getMapProjection(),
         fills : fillColors,
@@ -52,7 +50,7 @@ function initMap(fillColors) {
         },
         done : getFinishDrawAction()
     });
-    map.legend({
+    d_map.legend({
         defaultFillName : 'No ISD:'
     });
 }
@@ -94,30 +92,16 @@ function getBubblePopupTemplate() {
     };
 }
 
-function getAllGeocoordinates() {
-    var loc = [];
-    var isdAs;
-    // create bubbles for each ISD location
-    for (isdAs in self.jLoc) {
-        var ifNum = isdAs.split('-');
-        if (self.jLoc.hasOwnProperty(isdAs)) {
-            var coord = [ latlong[self.jLoc[isdAs]][0],
-                    latlong[self.jLoc[isdAs]][1] ];
-            loc.push(coord);
-        }
-    }
-    console.log('all coordinates', loc);
-    return loc;
-}
-
+/**
+ * Set default zoom level determined by ASes.
+ */
 function getMapProjection(element) {
-    // default zoom level should be determined by ASes
     return function(element) {
         var proj = getLatLngBoundedCenter(getAllGeocoordinates());
         console.log('center coordinates/scale', proj);
-        var projection = d3.geo.equirectangular().center([ proj[1], proj[0] ])
-                .rotate([ 0, 0 ]).scale(proj[2]).translate(
-                        [ element.offsetWidth / 2, element.offsetHeight / 3 ]);
+        var projection = d3.geo.mercator().center([ proj[1], proj[0] ]).rotate(
+                [ 0, 0 ]).scale(proj[2]).translate(
+                [ element.offsetWidth / 2, element.offsetHeight / 3 ]);
         var path = d3.geo.path().projection(projection);
         return {
             path : path,
@@ -126,181 +110,66 @@ function getMapProjection(element) {
     };
 }
 
-function updateMapIsdAsArc(res, path) {
-    var arcs = [];
-    // first add all possible routes from topology
-    for (var p = 0; p < self.jTopo.length; p++) {
-        // we want all ISD-ASes from each A to B link possible
-        var isdAsA = self.jLoc[self.jTopo[p].a];
-        var isdAsB = self.jLoc[self.jTopo[p].b];
-        if (isdAsA == isdAsB) {
-            // skip internal routing when making arcs
-            continue;
+/**
+ * Constructs a list of all possible and currently selected path topology
+ * locations and asynchronously passes it to the Datamaps object for updated
+ * rendering of the arcs.
+ * 
+ * @param path
+ *            When undefined, no currently selected path will be displayed.
+ */
+function updateDMapAsLinks(res, path) {
+    if (d_map) {
+        var all = getTopologyLinksAll();
+
+        if (typeof path !== "undefined") {
+            // second add specific routes from selected path
+            var routes = getPathSelectedLinks(res, path);
+            all = all.concat(routes);
         }
-        // find lat long
-        var arc = {
-            origin : {
-                latitude : latlong[isdAsA][0],
-                longitude : latlong[isdAsA][1]
-            },
-            destination : {
-                latitude : latlong[isdAsB][0],
-                longitude : latlong[isdAsB][1]
-            },
-            options : {
-                strokeColor : C_MAP_PATH_TOPO
-            },
-        };
-        arcs.push(arc);
+        d_map.arc(all);
     }
-    if (typeof path !== "undefined") {
-        // second add specific routes from selected path
-        var routes = [];
-        if (path < 0) {
-            for (var i = 0; i < res.if_lists.length; i++) {
-                routes.push(i);
-            }
-        } else {
-            routes.push(path);
-        }
-        for (var p = 0; p < routes.length; p++) {
-            var pNum = parseInt(routes[p]);
-            for (var ifNum = 0; ifNum < (res.if_lists[pNum].length - 1); ifNum++) {
-                // we want all ISD-ASes from each interface path traversed
-                var iface = res.if_lists[pNum][ifNum];
-                var ifaceNext = res.if_lists[pNum][ifNum + 1];
-                var isdAsA = self.jLoc[iface.ISD + '-' + iface.AS];
-                var isdAsB = self.jLoc[ifaceNext.ISD + '-' + ifaceNext.AS];
-                if (isdAsA == isdAsB) {
-                    // skip internal routing when making arcs
-                    continue;
-                }
-                // find lat long
-                var arc = {
-                    origin : {
-                        latitude : latlong[isdAsA][0],
-                        longitude : latlong[isdAsA][1]
-                    },
-                    destination : {
-                        latitude : latlong[isdAsB][0],
-                        longitude : latlong[isdAsB][1]
-                    },
-                    options : {
-                        strokeColor : C_MAP_PATH_ACTIVE
-                    },
-                };
-                arcs.push(arc);
-            }
-        }
-    }
-    return arcs;
 }
 
-function updateMapIsdAsBubbles(src, dst) {
-    var loc = [];
-    var isdAs;
-    // create bubbles for each ISD location
-    for (isdAs in self.jLoc) {
-        var ifNum = isdAs.split('-');
-        if (self.jLoc.hasOwnProperty(isdAs)) {
-            if (src != null && isdAs == src) {
-                label = " (source)";
-                rad = 8;
-            } else if (dst != null && isdAs == dst) {
-                label = " (destination)";
-                rad = 8;
-            } else {
-                label = '';
-                rad = 4;
-            }
-            var bubble = {
-                name : isdAs + label,
-                latitude : latlong[self.jLoc[isdAs]][0],
-                longitude : latlong[self.jLoc[isdAs]][1],
-                radius : rad,
-                fillKey : "ISD-" + ifNum[0],
-            };
-            loc.push(bubble);
-        }
+/**
+ * Constructs a list of the location, co-location, and source/destination
+ * properties of all AS markers and synchronously passes it to the Datamaps
+ * object for updated rendering of the bubbles used as markers.
+ */
+function updateDMapAsMarkers(src, dst) {
+    if (d_map) {
+        var loc = getMarkerLocations(src, dst);
+        d_map.bubbles(loc);
     }
-    // combine ISD locations that share geo-location
-    // sort by location, then name
-    loc.sort(function(a, b) {
-        if (a.longitude === b.longitude) {
-            return a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
-        }
-        return (a.longitude) - (b.longitude);
-    })
-    for (i = 0; i < loc.length; ++i) {
-        if ((i + 1) < loc.length && loc[i].longitude === loc[i + 1].longitude
-                && loc[i].latitude === loc[i + 1].latitude) {
-            // remove and add to previous
-            loc[i + 1].name = loc[i].name + ', ' + loc[i + 1].name;
-            if (loc[i].radius > loc[i + 1].radius) {
-                loc[i + 1].radius = loc[i].radius;
-            }
-            loc.splice(i--, 1);
-        }
-    }
-    return loc;
 }
 
-function updateMapIsdSelChoropleth(isds) {
-    // outline selcted ISDs
-    var countries = {};
-    var isdAs;
-    for (isdAs in self.jLoc) {
-        var ifNum = isdAs.split('-');
-        for (var i = 0; i < isds.length; i++) {
-            if (isds[i] == "0" || isds[i] == ifNum[0]) {
-                if (self.jLoc.hasOwnProperty(isdAs)) {
-                    var iso2 = self.jLoc[isdAs];
-                    // find 3 loc code base don 2loc code
-                    if (iso3.hasOwnProperty(iso2)) {
-                        countries[iso3[iso2]] = {
-                            fillKey : "ISD Selected",
-                        };
+/**
+ * Constructs a list of all countries currently in the ISD Whitelist and
+ * synchronously passes it to the Datamaps object for updated rendering of the
+ * choropleth.
+ */
+function updateDMapIsdRegions(isds) {
+    if (d_map) {
+        var countries = {};
+        var isdAs;
+        for (isdAs in self.jLoc) {
+            var ifNum = isdAs.split('-');
+            for (var i = 0; i < isds.length; i++) {
+                if (isds[i] == "0" || isds[i] == ifNum[0]) {
+                    if (self.jLoc.hasOwnProperty(isdAs)) {
+                        var iso2 = self.jLoc[isdAs];
+                        // find 3-loc code based on 2-loc code
+                        if (iso3.hasOwnProperty(iso2)) {
+                            countries[iso3[iso2]] = {
+                                fillKey : "ISD Selected",
+                            };
+                        }
                     }
                 }
             }
         }
+        d_map.updateChoropleth(countries, {
+            reset : true
+        });
     }
-    return countries;
-}
-
-function sortFloat(a, b) {
-    return a - b;
-}
-
-function getLatLngBoundedCenter(latLngInDegr) {
-    var lats = [];
-    var lngs = [];
-    for (var i = 0; i < latLngInDegr.length; i++) {
-        lats.push(parseFloat(latLngInDegr[i][0]));
-        lngs.push(parseFloat(latLngInDegr[i][1]));
-    }
-    lats.sort(sortFloat);
-    lngs.sort(sortFloat);
-
-    // calc TB diff, and BT diff, find center
-    var latTop = lats[latLngInDegr.length - 1];
-    var latBot = lats[0];
-    var b2t = Math.abs(latTop - latBot);
-    var lat = latBot + (b2t / 2);
-
-    // calc LR diff, and RL diff, find center
-    var lngRgt = lngs[latLngInDegr.length - 1];
-    var lngLft = lngs[0];
-    var l2r = Math.abs(lngRgt - lngLft);
-    var lng = lngLft + (l2r / 2);
-
-    // lat is flush in window, so add 1/3 margin
-    var latScale = 180 / b2t * 100 * 0.67;
-    // long is already short in window, do not add margin
-    var lngScale = 360 / l2r * 100;
-
-    // scale, use least scale to show most map
-    var scale = latScale < lngScale ? latScale : lngScale;
-
-    return [ lat, lng, scale ];
 }

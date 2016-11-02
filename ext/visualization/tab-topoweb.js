@@ -14,74 +14,13 @@
  * limitations under the License.
  */
 
-// 160315 yskim added for the final integration
-var nodes = new Array(); // for the nodes in topology
-
-var linksSource = new Array(); // for the edges(links) in topology
-var linksTarget = new Array();
-var linksValue = new Array();
-
-var core_as_nodes = new Array();
-
-var highlighted_path_ID = [];
-var graph;
-var svg;
-
-function lookupLinks(source, target) {
-    var res = -1;
-    for (var i = 0; i < linksSource.length; i++) {
-        if (source == nodes[linksSource[i]]) {
-            if (target == nodes[linksTarget[i]]) {
-                res = i;
-            }
-        }
-    }
-    return res;
+function topoSetup(msg) {
+    source_added = true;
+    destination_added = true;
 }
 
-function lookupNodes(name) {
-    var res = -1;
-    for (var i = 0; i < nodes.length; i++) {
-        if (nodes[i] == name) {
-            res = i;
-        }
-    }
-    return res;
-}
-
-function getGroupNumber(name) {
-    var iface = name.split("-");
-    return iface[0];
-}
-
-function buildNodeJsonString() {
-    var string;
-    for (var i = 0; i < nodes.length; i++) {
-        if (i == 0) {
-            string = '{"name":"' + nodes[i] + '","group":'
-                    + getGroupNumber(nodes[i]) + ', "AETYPE":"'
-                    + core_as_nodes[i] + '"}';
-        } else {
-            string = string + ',{"name":"' + nodes[i] + '","group":'
-                    + getGroupNumber(nodes[i]) + ', "AETYPE":"'
-                    + core_as_nodes[i] + '"}';
-        }
-    }
-    return '"nodes":[' + string + ']';
-}
-
-function buildLinkJsonString() {
-    var string;
-    for (var i = 0; i < linksSource.length; i++) {
-        if (i == 0) {
-            string = '{"source":' + linksSource[i] + ',"target":'
-                    + linksTarget[i] + ',"value":"' + linksValue[i] + '"}';
-        } else {
-            string = string + ',{"source":' + linksSource[i] + ',"target":'
-                    + linksTarget[i] + ',"value": "' + linksValue[i] + '"}';
-        }
-    }
-    return '"links":[' + string + ']';
+function topoColor(msg) {
+    acceptable_paths = [];
 }
 
 function drawPath(res, path) {
@@ -136,32 +75,9 @@ function drawPath(res, path) {
     }
 }
 
-// retrieve given ID because the link will consist of source-target. or
-// target-source,
-function getPathId(source, target) {
-    var res = 'null';
-
-    // search source - target
-    for (var i = 0; i < graph.links.length; i++) {
-        if (graph.links[i].source.name == source) {
-            if (graph.links[i].target.name == target) {
-                res = "source_" + source + "_target_" + target;
-            }
-        }
-    }
-
-    // and target - source
-    for (var j = 0; j < graph.links.length; j++) {
-        if (graph.links[j].target.name == source) {
-            if (graph.links[j].source.name == target) {
-                res = "source_" + target + "_target_" + source;
-            }
-        }
-    }
-    return res;
-}
-
-// restore the original links
+/**
+ * restore the original links
+ */
 function restorePath() {
     for (var i = 0; i < highlighted_path_ID.length; i++) {
         // 1) divide highlihted_path_ID into from - to information.
@@ -189,39 +105,8 @@ function restorePath() {
 }
 
 function drawTopology(original_json_data, width, height) {
-    nodes = new Array();
-    linksSource = new Array();
-    linksTarget = new Array();
-    linksValue = new Array();
-    core_as_nodes = new Array();
-    highlighted_path_ID = [];
 
-    // make node structure first
-    for (var i = 0; i < original_json_data.length; i++) {
-        // read a and b, and put them into the Array node
-        // if there is not, then I'll push that the queue, if there is, then i
-        // can get its index through lookup function
-        if (lookupNodes(original_json_data[i].a) == -1) {
-            nodes.push(original_json_data[i].a);
-            core_as_nodes.push(original_json_data[i].ltype);
-        }
-        if (lookupNodes(original_json_data[i].b) == -1) {
-            nodes.push(original_json_data[i].b);
-            core_as_nodes.push(original_json_data[i].ltype);
-        }
-    }
-
-    // for the link structure. they already have link structure, so re-merge it
-    // into easiest way to render
-    for (var i = 0; i < original_json_data.length; i++) {
-        linksSource.push(lookupNodes(original_json_data[i].a));
-        linksTarget.push(lookupNodes(original_json_data[i].b));
-        linksValue.push(original_json_data[i].ltype);
-    }
-
-    // merge, and make a complete json chunk
-    var forced_layout_json_text = '{' + buildNodeJsonString() + ','
-            + buildLinkJsonString() + '}';
+    var forced_layout_json_text = createGraphJson(original_json_data);
 
     graph = JSON.parse(forced_layout_json_text);
 
@@ -249,7 +134,7 @@ function drawTopology(original_json_data, width, height) {
 
     var path = svg.append("g").selectAll("path").data(force.links()).enter()
             .append("path").attr("class", function(d) {
-                return "link " + d.value
+                return "link " + d.type
             }).attr("id", function(d) {
                 return "source_" + d.source.name + "_target_" + d.target.name;
             });
@@ -258,7 +143,7 @@ function drawTopology(original_json_data, width, height) {
             .enter().append("circle").attr("r", 12).style("fill", function(d) {
                 return color(d.group);
             }).attr("class", function(d) {
-                return "nodes " + d.AETYPE;
+                return "nodes " + d.type;
             }).attr("id", function(d) {
                 return "node_" + d.name;
             }).attr("clicked", "false").on("mouseover", mouseover).on(
@@ -277,7 +162,7 @@ function drawTopology(original_json_data, width, height) {
             .attr("id", function(d) {
                 return "detailed_" + d.name;
             }).attr("y", ".31em").text(function(d) {
-                return (d.AETYPE);
+                return (d.type);
             });
 
     // Use elliptical arc path segments to doubly-encode directionality.
@@ -335,3 +220,20 @@ function drawTopology(original_json_data, width, height) {
         }
     }
 }
+
+function resize_topology() {
+    // give topology more room
+    if (typeof self.jTopo !== "undefined") {
+        var rect = document.getElementById("divTabs").getBoundingClientRect();
+        var width = rect.width - 15
+        var height = (rect.height - 50 - 5) - 15;
+        if (height < 600) {
+            height = 600;
+        }
+        drawTopology(self.jTopo, width, height);
+    }
+}
+
+$(window).resize(function() {
+    resize_topology();
+});

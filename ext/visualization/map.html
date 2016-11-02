@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<!--
+ * Copyright 2016 ETH Zurich
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+-->
+<html>
+<head>
+<title>SCION Locations Google Map Context</title>
+<meta name="viewport" content="initial-scale=1.0, user-scalable=no">
+<meta charset="utf-8">
+<style>
+/**
+ * ------------------------------- Google Maps --------------------------------
+ */
+html, body {
+ margin: 0;
+ padding: 0;
+ height: 100%;
+ width: 100%;
+}
+
+#map-canvas {
+ height: 100%;
+}
+
+#legend {
+ font-family: Arial, sans-serif;
+ background: #fff;
+ padding: 10px;
+ margin: 10px;
+ border: 3px solid #000;
+}
+
+#legend h3 {
+ margin-top: 0;
+}
+
+#legend img {
+ vertical-align: middle;
+}
+</style>
+<script>
+    var g_map;
+    var route;
+    var routeAll;
+    var world_geometry;
+    var geodesic = true;
+    var strokeOpacity = 1;
+    var strokeWeight = 2;
+    var isds;
+    var proj;
+    var appWindow = null;
+    var appOrigin = null;
+    var isd_colors = [ 'grey', 'blue', 'orange', 'green', 'red', 'purple',
+            'brown' ];
+
+    /**
+     * Load the Google Maps API using our Google Cloud Storage developer key.
+     **/
+    function loadScript() {
+        var script = document.createElement('script');
+        script.type = 'text/javascript';
+        script.src = "https://maps.googleapis.com/maps/api/js?key=AIzaSyC1amANd6P0ptnLs9I0WRTY5NPR3KrL0ao&callback=initMap";
+        document.body.appendChild(script);
+    }
+
+    /**
+     * Render the Google Map for the first time.
+     **/
+    function initMap() {
+        g_map = new google.maps.Map(document.getElementById('map-canvas'), {
+            mapTypeId : 'roadmap',
+        });
+    }
+
+    /**
+     * Constructs the ISD legend with inline SVG and HTML to avoid pulling network resources from pre-generated PNGs.
+     **/
+    function setLegend() {
+        var icons = {};
+        for (var i = 0, len = isds.length; i < len; i++) {
+            icons['isd' + isds[i]] = {
+                name : 'ISD-' + isds[i],
+                color : isd_colors[isds[i]]
+            };
+        }
+        var legend = document.getElementById('legend');
+        for ( var key in icons) {
+            var type = icons[key];
+            var name = type.name;
+            var color = type.color;
+            var div = document.createElement('div');
+
+            div.innerHTML = '<svg width="20" height="10">\
+                    <rect x="0" y="0" width="20" height="10"\
+                    style="fill:' + color + ';stroke:black;stroke-width:1;fill-opacity:0.5;" />\
+                </svg>'
+                    + ' ' + name;
+            legend.appendChild(div);
+        }
+        g_map.controls[google.maps.ControlPosition.RIGHT_BOTTOM].push(document
+                .getElementById('legend'));
+    }
+
+    /**
+     * Formats the ISD locations by country using fusion tables and draws them on the map.
+     **/
+    function setIsdRegion(countries) {
+        if (world_geometry) {
+            world_geometry.setMap(null);
+            world_geometry = null;
+        }
+        var c_str = '';
+        for (var i = 0; i < countries.length; i++) {
+            if (i == 0)
+                c_str += "'" + countries[i] + "'";
+            else
+                c_str += ", '" + countries[i] + "'";
+        }
+        world_geometry = new google.maps.FusionTablesLayer({
+            query : {
+                select : 'geometry',
+                from : '1N2LBk4JHwWpOY4d9fobIn27lfnZ5MDy-NoqqRpk',
+                where : "ISO_2DIGIT IN (" + c_str + ")"
+            },
+            suppressInfoWindows : true,
+            styles : [ {
+                polygonOptions : {
+                    fillColor : '#C0C0C0',
+                    fillOpacity : 0.3
+                }
+            } ]
+        });
+        world_geometry.setMap(g_map);
+    }
+
+    /**
+     * Formats the AS location marker objects.
+     **/
+    function setGMMarker(name, latitude, longitude, label, map) {
+        var marker = new google.maps.Marker({
+            icon : getIcon(parseInt(name[0]), label),
+            position : {
+                lat : parseFloat(latitude),
+                lng : parseFloat(longitude)
+            },
+            title : name,
+            map : map
+        });
+        return marker;
+    }
+
+    /**
+     * Generates an inline SVG object rendering as an icon to avoid pulling network resources from pre-generated PNGs.
+     **/
+    function getIcon(isd, label) {
+        var svg = [
+                '<?xml version="1.0"?>',
+                '<svg width="25px" height="25px" viewBox="-25 -50 50 50" xmlns="http://www.w3.org/2000/svg" version="1.1">',
+                '<path d="M0-48c-9.8 0-17.7 7.8-17.7 17.4 0 15.5 17.7 30.6 17.7 30.6s17.7-15.4 17.7-30.6c0-9.6-7.9-17.4-17.7-17.4z" fill="'
+                        + isd_colors[isd]
+                        + '" stroke="black" stroke-width="1" fill-opacity=".25" />',
+                '<text x="-10" y="-15" font-family="sans-serif" font-size="30px" fill="white">'
+                        + label + '</text>', '</svg>' ].join('\n');
+        return {
+            url : 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg),
+            anchor : new google.maps.Point(12, 25),
+            scale : .5
+        };
+    }
+
+    /**
+     * Draw AS markers on the map, and zoom to AS bounds.
+     **/
+    function setAsMarkers(loc) {
+        // display AS locations
+        var markers = [];
+        for (var i = 0; i < loc.length; i++) {
+            var label = loc[i].marker;
+            markers.push(setGMMarker(loc[i].name, loc[i].latitude,
+                    loc[i].longitude, label, g_map));
+        }
+
+        // zoom to AS bounds
+        var bounds = new google.maps.LatLngBounds();
+        for (var i = 0; i < markers.length; i++) {
+            bounds.extend(markers[i].getPosition());
+        }
+        g_map.fitBounds(bounds);
+    }
+
+    /**
+     * Formats the current path selection to draw proper polylines on the map.
+     **/
+    function setPathSelected(path) {
+        if (route) {
+            route.setMap(null);
+            route = null;
+        }
+        if (path.length > 0) {
+            var arcs = [];
+            for (var i = 0; i < path.length; i++) {
+                arcs.push({
+                    lat : parseFloat(path[i].origin.latitude),
+                    lng : parseFloat(path[i].origin.longitude)
+                });
+            }
+            arcs.push({
+                lat : parseFloat(path[i - 1].destination.latitude),
+                lng : parseFloat(path[i - 1].destination.longitude)
+            });
+            route = new google.maps.Polyline({
+                path : arcs,
+                geodesic : geodesic,
+                strokeColor : path[0].options.strokeColor,
+                strokeOpacity : strokeOpacity,
+                strokeWeight : strokeWeight,
+            });
+            route.setMap(g_map);
+        }
+    }
+
+    /**
+     * Formats the entire topology to draw proper polylines on the map.
+     **/
+    function setPathAll(path) {
+        if (routeAll) {
+            routeAll.setMap(null);
+            routeAll = null;
+        }
+        var pathAll = [];
+        for (var i = 0; i < path.length; i++) {
+            pathAll.push([ {
+                lat : parseFloat(path[i].origin.latitude),
+                lng : parseFloat(path[i].origin.longitude)
+            }, {
+                lat : parseFloat(path[i].destination.latitude),
+                lng : parseFloat(path[i].destination.longitude)
+            } ]);
+        }
+
+        routeAll = new google.maps.Polygon({
+            paths : pathAll,
+            geodesic : geodesic,
+            strokeColor : path[0].options.strokeColor,
+            strokeOpacity : strokeOpacity,
+            strokeWeight : strokeWeight,
+        });
+        routeAll.setMap(g_map);
+    }
+
+    /**
+     * Serves as the message-handler callback from the main app.
+     **/
+    function receiveMessage(event) {
+        // first message: store appWindow and appOrigin
+        if (!appWindow || !appOrigin) {
+            appWindow = event.source;
+            appOrigin = event.origin;
+            console.log('Opened communication with SCION Viz app.');
+        }
+        console.log('Received message:', JSON.stringify(event.data));
+
+        if (event.data.command.hasOwnProperty('initMap')) {
+            if (g_map) {
+                isds = event.data.command.initMap;
+                setLegend();
+            }
+        } else if (event.data.command.hasOwnProperty('updateMapAsMarkers')) {
+            if (g_map) {
+                setAsMarkers(event.data.command.updateMapAsMarkers);
+            }
+        } else if (event.data.command.hasOwnProperty('updateMapAsLinksAll')) {
+            if (g_map) {
+                setPathAll(event.data.command.updateMapAsLinksAll);
+            }
+        } else if (event.data.command.hasOwnProperty('updateMapAsLinksPath')) {
+            if (g_map) {
+                setPathSelected(event.data.command.updateMapAsLinksPath);
+            }
+        } else if (event.data.command.hasOwnProperty('updateMapIsdRegions')) {
+            if (g_map) {
+                setIsdRegion(event.data.command.updateMapIsdRegions);
+            }
+        }
+    }
+
+    window.addEventListener('message', receiveMessage);
+
+    window.onload = function() {
+        if (!g_map) {
+            loadScript();
+        }
+    };
+</script>
+</head>
+<body>
+ <div id="map-canvas"></div>
+ <div id="legend">
+  <h3>Legend</h3>
+ </div>
+</body>
+</html>

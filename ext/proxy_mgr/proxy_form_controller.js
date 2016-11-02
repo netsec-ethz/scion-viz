@@ -666,7 +666,11 @@ ProxyFormController.prototype = {
       case ProxyFormController.ProxyTypes.SCION:
           // SCION case should construct its properties
           return {mode: 'fixed_servers',
-              rules: { singleProxy: { host: SCION_HOST, port: SCION_PORT } }
+                  rules: { singleProxy: { host: SCION_HOST, port: SCION_PORT }, 
+                  // prevent google maps from eroding visualization
+                  // performance when passing through SCION proxy
+                  bypassList: ["maps.googleapis.com","mts*.googleapis.com",
+                               "maps.gstatic.com","csi.gstatic.com","fonts.gstatic.com"] }
           };
           return config;
       case ProxyFormController.ProxyTypes.FIXED:

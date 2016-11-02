@@ -198,7 +198,7 @@ $(function() {
             requestLookup();
         } else {
             // when closing accordion clean path selection, keep bubbles
-            map.arc(updateMapIsdAsArc());
+            updateMapAsLinks();
             restorePath();
         }
     });
