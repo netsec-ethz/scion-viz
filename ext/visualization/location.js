@@ -96,21 +96,7 @@ function getTopologyLinksAll() {
             // skip internal routing when making arcs
             continue;
         }
-        // find lat long
-        var arc = {
-            origin : {
-                latitude : latlong[isdAsA][0],
-                longitude : latlong[isdAsA][1]
-            },
-            destination : {
-                latitude : latlong[isdAsB][0],
-                longitude : latlong[isdAsB][1]
-            },
-            options : {
-                strokeColor : C_MAP_PATH_TOPO
-            },
-        };
-        arcs.push(arc);
+        arcs.push(createLink(isdAsA, isdAsB, C_MAP_PATH_TOPO));
     }
     return arcs;
 }
@@ -140,24 +126,37 @@ function getPathSelectedLinks(res, path) {
                 // skip internal routing when making arcs
                 continue;
             }
-            // find lat long
-            var arc = {
-                origin : {
-                    latitude : latlong[isdAsA][0],
-                    longitude : latlong[isdAsA][1]
-                },
-                destination : {
-                    latitude : latlong[isdAsB][0],
-                    longitude : latlong[isdAsB][1]
-                },
-                options : {
-                    strokeColor : C_MAP_PATH_ACTIVE
-                },
-            };
-            arcs.push(arc);
+            arcs.push(createLink(isdAsA, isdAsB, C_MAP_PATH_ACTIVE));
         }
     }
     return arcs;
+}
+
+/**
+ * Formats path link data used for both Datamaps and Webcola map UI.
+ * 
+ * @param isdAsA
+ *                Link start "ISD-AS".
+ * @param isdAsB
+ *                Link end "ISD-AS".
+ * @param color
+ *                RGB color of link path.
+ * @returns Link object used to draw.
+ */
+function createLink(isdAsA, isdAsB, color) {
+    return {
+        origin : {
+            latitude : latlong[isdAsA][0],
+            longitude : latlong[isdAsA][1]
+        },
+        destination : {
+            latitude : latlong[isdAsB][0],
+            longitude : latlong[isdAsB][1]
+        },
+        options : {
+            strokeColor : color
+        }
+    };
 }
 
 /**

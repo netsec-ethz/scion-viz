@@ -29,6 +29,11 @@ var color;
 var d3cola;
 var svg;
 
+var typeRouting = 'ROUTING';
+var typeParent = 'PARENT';
+var typePeer = 'PEER';
+var typeChild = 'CHILD';
+
 // 160315 yskim added for the final integration
 function lookupLinks(source, target) {
     var res = -1;
@@ -74,7 +79,7 @@ function buildIdsJsonString() {
 function buildNodeJsonString() {
     var string;
     for (var i = 0; i < nodes.length; i++) {
-        var core = (core_as_nodes[i] == "ROUTING") ? 0 : 1;
+        var core = (core_as_nodes[i] == typeRouting) ? 0 : 1;
         if (i == 0) {
             string = '{"name":"' + nodes[i] + '","group":'
                     + getGroupNumber(nodes[i], core) + ', "type":"'
@@ -116,8 +121,8 @@ function createGraphJson(original_json_data) {
         var isdB = b.b.split('-')[0];
         var asA = a.b.split('-')[1];
         var asB = b.b.split('-')[1];
-        var coreA = (a.ltype == 'ROUTING') ? 0 : 1;
-        var coreB = (b.ltype == 'ROUTING') ? 0 : 1;
+        var coreA = (a.ltype == typeRouting) ? 0 : 1;
+        var coreB = (b.ltype == typeRouting) ? 0 : 1;
         if (isdA < isdB)
             return -1;
         if (isdA > isdB)

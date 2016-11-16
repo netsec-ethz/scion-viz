@@ -69,23 +69,7 @@ function topoColor(msg) {
 
             for (i in setup[key]) {
                 if (prev != "none") {
-                    if (msg[key] != "none") {
-                        $(".source-" + prev + ".target-" + setup[key][i]).attr(
-                                "stroke", possible_colors[msg[key]]).attr(
-                                "stroke-opacity", "1");
-
-                        $(".source-" + setup[key][i] + ".target-" + prev).attr(
-                                "stroke", possible_colors[msg[key]]).attr(
-                                "stroke-opacity", "1");
-                    } else {
-                        $(".source-" + prev + ".target-" + setup[key][i]).attr(
-                                "stroke", default_link_color).attr(
-                                "stroke-opacity", default_link_opacity);
-
-                        $(".source-" + setup[key][i] + ".target-" + prev).attr(
-                                "stroke", default_link_color).attr(
-                                "stroke-opacity", default_link_opacity);
-                    }
+                    updatePathProperties(prev, setup[key][i], msg[key]);
                 }
                 prev = setup[key][i];
             }
@@ -99,6 +83,24 @@ function topoColor(msg) {
     if (msg.hasOwnProperty("destination")) {
         $(".node.destination")
                 .attr("fill", possible_colors[msg["destination"]]);
+    }
+}
+
+function updatePathProperties(prevPath, currPath, color) {
+    if (color != "none") {
+        $(".source-" + prevPath + ".target-" + currPath).attr("stroke",
+                possible_colors[color]).attr("stroke-opacity", "1");
+
+        $(".source-" + currPath + ".target-" + prevPath).attr("stroke",
+                possible_colors[color]).attr("stroke-opacity", "1");
+    } else {
+        $(".source-" + prevPath + ".target-" + currPath).attr("stroke",
+                default_link_color)
+                .attr("stroke-opacity", default_link_opacity);
+
+        $(".source-" + currPath + ".target-" + prevPath).attr("stroke",
+                default_link_color)
+                .attr("stroke-opacity", default_link_opacity);
     }
 }
 

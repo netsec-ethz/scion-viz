@@ -124,8 +124,8 @@ function drawTopology(original_json_data, width, height) {
             "height", height);
 
     // Per-type markers, as they don't inherit styles.
-    svg.append("defs").selectAll("marker")
-            .data([ "PARENT", "ROUTING", "PEER" ]).enter().append("marker")
+    svg.append("defs").selectAll("marker").data(
+            [ typeParent, typeRouting, typePeer ]).enter().append("marker")
             .attr("id", function(d) {
                 return d;
             }).attr("viewBox", "0 -5 10 10").attr("refX", 15)
