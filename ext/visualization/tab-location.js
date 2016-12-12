@@ -14,20 +14,20 @@
  * limitations under the License.
  */
 
-var d_map;
+var d_map = null;
 
 /**
  * Synchronously initializes the Datamaps object with the Datamaps API and
  * renders map for the first time.
  * 
  * @param isds
- *            A numeric array of ISD numbers used to render the map legend.
+ *                A numeric array of ISD numbers used to render the map legend.
  */
-function initMap(isds) {
+function initDMap(isds) {
     fillColors = getIsdFillColors(isds);
     d_map = new Datamap({
         scope : 'world',
-        element : document.getElementById("map-canvas"),
+        element : document.getElementById("d-map"),
         responsive : true,
         setProjection : getMapProjection(),
         fills : fillColors,
@@ -116,9 +116,9 @@ function getMapProjection(element) {
  * rendering of the arcs.
  * 
  * @param path
- *            When undefined, no currently selected path will be displayed.
+ *                When undefined, no currently selected path will be displayed.
  */
-function updateMapAsLinks(res, path) {
+function updateDMapAsLinks(res, path) {
     if (d_map) {
         var all = getTopologyLinksAll();
 
@@ -136,7 +136,7 @@ function updateMapAsLinks(res, path) {
  * properties of all AS markers and synchronously passes it to the Datamaps
  * object for updated rendering of the bubbles used as markers.
  */
-function updateMapAsMarkers(src, dst) {
+function updateDMapAsMarkers(src, dst) {
     if (d_map) {
         var loc = getMarkerLocations(src, dst);
         d_map.bubbles(loc);
@@ -148,7 +148,7 @@ function updateMapAsMarkers(src, dst) {
  * synchronously passes it to the Datamaps object for updated rendering of the
  * choropleth.
  */
-function updateMapIsdRegions(isds) {
+function updateDMapIsdRegions(isds) {
     if (d_map) {
         var countries = {};
         var isdAs;
