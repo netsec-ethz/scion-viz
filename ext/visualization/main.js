@@ -512,22 +512,32 @@ function handleRespGetIsdEndpoints(res) {
 function handleRespLocations(res) {
     if (!Array.isArray(res)) {
         self.jLoc = res;
-
-        // render blank map on load
-        initMap(self.isds);
-
-        // check topoplogy for valid locations
-        if (validTopoLocations()) {
-            // Show AS and ISD numbers on the map on the countries
-            updateMapAsMarkers();
-            updateMapAsLinks();
-        }
-        // make requests only after map is loaded
-        requestGetEndpoints();
+        updateMapResources();
         return true;
     } else {
         return false;
     }
+}
+
+function updateMapResources() {
+    // show g-map, remove d-map
+    if (d_map) {
+        $("#d-map").remove();
+        $("#tabLocation")
+                .append(
+                        "<webview id='g-map' src='./map.html' partition='google-maps'></webview>");
+    }
+    d_map = null;
+    initGMap(self.isds);
+
+    // check topoplogy for valid locations
+    if (validTopoLocations()) {
+        // Show AS and ISD numbers on the map on the countries
+        updateMapAsMarkers();
+        updateMapAsLinks();
+    }
+    // make requests only after map is loaded
+    requestGetEndpoints();
 }
 
 function handleRespList(res) {

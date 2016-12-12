@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-var C_MAP_COUNDEF = '#EEEEEE';
+var C_MAP_COUNDEF = '#C0E0BB';
 var C_MAP_COUN = '#3366CC';
 var C_MAP_COUN_SEL = '#CCCCCC';
 var C_MAP_PATH_TOPO = '#999999';
@@ -26,6 +26,30 @@ var C_MAP_ISDS = [ '#0099FF', '#FF9900', '#FF0099', '#9900FF', '#00FF99',
 
 function sortFloat(a, b) {
     return a - b;
+}
+
+function updateMapAsLinks(res, path) {
+    if (d_map) {
+        updateDMapAsLinks(res, path);
+    } else if (wv_map) {
+        updateGMapAsLinks(res, path);
+    }
+}
+
+function updateMapAsMarkers(src, dst) {
+    if (d_map) {
+        updateDMapAsMarkers(src, dst);
+    } else if (wv_map) {
+        updateGMapAsMarkers(src, dst);
+    }
+}
+
+function updateMapIsdRegions(isds) {
+    if (d_map) {
+        updateDMapIsdRegions(isds);
+    } else if (wv_map) {
+        updateGMapIsdRegions(isds);
+    }
 }
 
 /**
