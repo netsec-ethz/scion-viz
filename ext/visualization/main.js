@@ -26,6 +26,7 @@ var reqs_cnt = 0;
 var resp_cnt = 0;
 var reqs = [];
 var udpReqMutex = false;
+var echoClient = null;
 
 // UDP request commands
 var ReqCmds = {
@@ -39,15 +40,10 @@ var ReqCmds = {
     CLEAR_URLS : 'CLEAR',
 };
 
-window.onload = function() {
-}
-
 // UDP sockets...
 
 console.debug = function() {
 };
-
-var echoClient = null;
 
 chrome.runtime.onMessageExternal.addListener(function(request, sender,
         sendResponse) {
@@ -333,6 +329,76 @@ function processCmdResp(cmd, res) {
     return false;
 }
 
+/**
+ * Report if all locations match stated topology.
+ */
+function validTopoLocations() {
+    var isdAs;
+    for (isdAs in self.jLoc) {
+        var found = false;
+        for (var p = 0; p < self.jTopo.length; p++) {
+            if (isdAs == self.jTopo[p].a || isdAs == self.jTopo[p].b) {
+                found = true;
+                continue;
+            }
+        }
+        if (!found) {
+            console.error("LOCATION not found in TOPO, ", isdAs);
+            return false;
+        }
+    }
+    return true;
+}
+
+/**
+ * Report if both end points match stated topology.
+ */
+function validTopoEndpoints() {
+    var foundSrc = foundDst = false;
+    var src = self.jSrc[0] + "-" + self.jSrc[1];
+    var dst = self.jDst[0] + "-" + self.jDst[1];
+    for (var p = 0; p < self.jTopo.length; p++) {
+        if (src == self.jTopo[p].a || src == self.jTopo[p].b) {
+            foundSrc = true;
+        }
+        if (dst == self.jTopo[p].a || dst == self.jTopo[p].b) {
+            foundDst = true;
+        }
+    }
+    if (!foundSrc || !foundDst) {
+        console.error("ENDPOINT not found in TOPO, ", src + ", " + dst);
+        return false;
+    }
+    return true;
+}
+
+function validTopoWhitelist() {
+}
+
+/**
+ * Report if reported path interfaces match stated topology.
+ */
+function validTopoLookup(res) {
+    for (var i = 0; i < res.if_lists.length; i++) {
+        for (var f = 0; f < res.if_lists[i].length; f++) {
+
+            var iFace = res.if_lists[i][f].ISD + "-" + res.if_lists[i][f].AS;
+            var found = false;
+            for (var p = 0; p < self.jTopo.length; p++) {
+                if (iFace == self.jTopo[p].a || iFace == self.jTopo[p].b) {
+                    found = true;
+                    continue;
+                }
+            }
+            if (!found) {
+                console.error("LOOKUP interface not found in TOPO, ", iFace);
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
 function handleRespTopology(res) {
     if (Array.isArray(res) && res[0].hasOwnProperty("a")
             && res[0].hasOwnProperty("b") && res[0].hasOwnProperty("ltype")) {
@@ -352,7 +418,13 @@ function handleRespTopology(res) {
         // populate ISD checkbox list
         populateIsdCheckboxes();
 
-        var width = $(window).width(), height = $(window).height();
+        var rect = document.getElementById("TopologyGraph")
+                .getBoundingClientRect();
+        var width = rect.width;
+        var height = rect.height;
+        if (height < 600) {
+            height = 600;
+        }
         drawTopology(self.jTopo, width, height);
 
         // locations should load only after topology has arrived
@@ -394,30 +466,41 @@ function populateIsdCheckboxes() {
 function handleRespGetIsdEndpoints(res) {
     if (!Array.isArray(res) && res.hasOwnProperty("source_ISD_AS")
             && res.hasOwnProperty("target_ISD_AS")) {
+
         // Update bubble with src and dst now known
         self.jSrc = res.source_ISD_AS;
         self.jDst = res.target_ISD_AS;
-        map.bubbles(updateMapIsdAsBubbles(self.jSrc[0] + "-" + self.jSrc[1],
-                self.jDst[0] + "-" + self.jDst[1]));
 
-        // gray out only src and dest checkboxes
-        var isAnyEnabled = false;
-        var cbLen = document.getElementsByName('cbIsd').length;
-        for (var i = 0; i < cbLen; i++) {
-            var cb = document.getElementsByName('cbIsd')[i];
-            var id = "ckbIsd" + cb.value;
-            if (cb.value == self.jSrc[0] || cb.value == self.jDst[0]) {
-                document.getElementById(id).disabled = true;
-                document.getElementById(id).checked = true;
-            } else {
-                // re enable when src and dst are known
-                document.getElementById(id).disabled = false;
-                isAnyEnabled = true;
+        // check topoplogy for valid end points
+        if (validTopoEndpoints()) {
+            if (validTopoLocations()) {
+                updateMapAsMarkers(self.jSrc[0] + "-" + self.jSrc[1],
+                        self.jDst[0] + "-" + self.jDst[1]);
             }
+            // gray out only src and dest checkboxes
+            var isAnyEnabled = false;
+            var cbLen = document.getElementsByName('cbIsd').length;
+            for (var i = 0; i < cbLen; i++) {
+                var cb = document.getElementsByName('cbIsd')[i];
+                var id = "ckbIsd" + cb.value;
+                if (cb.value == self.jSrc[0] || cb.value == self.jDst[0]) {
+                    document.getElementById(id).disabled = true;
+                    document.getElementById(id).checked = true;
+                } else {
+                    // re enable when src and dst are known
+                    document.getElementById(id).disabled = false;
+                    isAnyEnabled = true;
+                }
+            }
+            // if all ISDs grey, no change wlist cmd
+            var cbAllIsd = document.getElementById("ckbCheckAllIsd");
+            cbAllIsd.disabled = !isAnyEnabled;
+
+            topoSetup({
+                "source" : self.jSrc[0] + "-" + self.jSrc[1],
+                "destination" : self.jDst[0] + "-" + self.jDst[1]
+            });
         }
-        // if all ISDs grey, no change wlist cmd
-        var cbAllIsd = document.getElementById("ckbCheckAllIsd");
-        cbAllIsd.disabled = !isAnyEnabled;
 
         requestGetIsdWhitelist();
         return true;
@@ -431,12 +514,14 @@ function handleRespLocations(res) {
         self.jLoc = res;
 
         // render blank map on load
-        initMap(getIsdFillColors(self.isds));
+        initMap(self.isds);
 
-        // Show AS and ISD numbers on the map on the countries
-        map.bubbles(updateMapIsdAsBubbles());
-        map.arc(updateMapIsdAsArc());
-
+        // check topoplogy for valid locations
+        if (validTopoLocations()) {
+            // Show AS and ISD numbers on the map on the countries
+            updateMapAsMarkers();
+            updateMapAsLinks();
+        }
         // make requests only after map is loaded
         requestGetEndpoints();
         return true;
@@ -493,13 +578,15 @@ function handleRespLookup(res) {
 
         // show the links between the countries on the map, default to last path
         document.getElementsByName('radioPath')[res.if_lists.length].checked = true;
-        handlePathSelection(res, res.if_lists.length - 1);
+        if (validTopoLookup(res)) {
+            handlePathSelection(res, res.if_lists.length - 1);
 
-        // Allow user selection of path in the accordion
-        var rLen = document.getElementsByName('radioPath').length;
-        for (var i = 0; i < rLen; i++) {
-            document.getElementsByName('radioPath')[i].onclick = function() {
-                handlePathSelection(res, parseInt(this.value));
+            // Allow user selection of path in the accordion
+            var rLen = document.getElementsByName('radioPath').length;
+            for (var i = 0; i < rLen; i++) {
+                document.getElementsByName('radioPath')[i].onclick = function() {
+                    handlePathSelection(res, parseInt(this.value));
+                }
             }
         }
         return true;
@@ -509,8 +596,9 @@ function handleRespLookup(res) {
 }
 
 function handlePathSelection(res, path) {
-    map.arc(updateMapIsdAsArc(res, path));
-
+    if (validTopoLocations(res)) {
+        updateMapAsLinks(res, path);
+    }
     // 160315 yskim added
     restorePath();
     drawPath(res, path);
@@ -533,8 +621,8 @@ function handleRespSetIsdWhitelist(res) {
 function clearFrontEnd() {
     clearTimeout(self.listTimeoutId);
     removeAllFromAccordion();
-    if (map) {
-        map.arc(updateMapIsdAsArc());
+    if (validTopoLocations(self.jLoc)) {
+        updateMapAsLinks();
     }
     restorePath();
 }
@@ -559,9 +647,7 @@ function handleRespGetIsdWhitelist(res) {
             cbAllIsd.checked = true;
         }
         // change ISDs on map
-        map.updateChoropleth(updateMapIsdSelChoropleth(isds), {
-            reset : true
-        });
+        updateMapIsdRegions(isds);
 
         // close setup phase
         clearTimeout(self.listTimeoutId);
@@ -596,9 +682,7 @@ function handleIsdWhitelistCheckedChange() {
             isds.push(parseInt(cb.value));
         }
     }
-    map.updateChoropleth(updateMapIsdSelChoropleth(isds), {
-        reset : true
-    });
+    updateMapIsdRegions(isds);
 
     // when all isds checked, must sure 'all' is as well
     var cbAllIsd = document.getElementById("ckbCheckAllIsd");
@@ -660,16 +744,13 @@ $(function() {
         handleIsdWhitelistCheckedChange();
     });
 });
-$(window).resize(function() {
-    // give topology more room
-    if (typeof self.jTopo !== "undefined") {
-        var width = $(window).width(), height = $(window).height();
-        drawTopology(self.jTopo, width, height);
-    }
-});
+
 // wait for DOM load
 $(document).ready(
         function() {
+
+            initResizeablePanels();
+
             // check/uncheck all ISDs that are enabled
             $("#ckbCheckAllIsd").click(
                     function() {
@@ -713,3 +794,33 @@ $(document).ready(
                         });
                     });
         });
+
+function initResizeablePanels() {
+    // init resizable panels
+    var bheight = $("#divResizable").height();
+    var nbpanels = $(".vpanel").size();
+    var pad = 0;// 2.5;
+    $(".vpanel").height((bheight / nbpanels) - (nbpanels * pad - 2 * pad));
+    $(".vpanel").resizable(
+            {
+                handles : {
+                    's' : '#handle'
+                },
+                minHeight : 100,
+                resize : function(event, ui) {
+                    var curheight = ui.size.height;
+                    // set the content panel height
+                    $(".vpanel").height(
+                            ((bheight - curheight + pad) / (nbpanels - 1))
+                                    - ((nbpanels - 1) * pad));
+                    $(this).height(curheight);
+
+                    // now, reset topo window
+                    resize_topology();
+                }
+            });
+}
+
+$(window).resize(function() {
+    initResizeablePanels();
+});

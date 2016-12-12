@@ -1,0 +1,1 @@
+{"received_packets":[8,1],"loss_rates":[0.0,0.0],"if_counts":[2,4],"sent_packets":[10,2],"acked_packets":[10,1],"rtts":[15629,17708],"if_lists":[[{"AS":5,"ISD":1,"IFID":2},{"AS":2,"ISD":1,"IFID":2}],[{"AS":5,"ISD":1,"IFID":1},{"AS":1,"ISD":1,"IFID":1},{"AS":1,"ISD":1,"IFID":2},{"AS":2,"ISD":1,"IFID":1}]]}
