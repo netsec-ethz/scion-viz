@@ -79,7 +79,7 @@ html, body {
  height: calc(100% - ( 58px));
 }
 
-#map-canvas {
+#d-map {
  position: absolute;
  width: calc(100% - ( 2px));
  height: calc(100% - ( 58px));
@@ -149,6 +149,10 @@ tr:nth-child(even) {
 .datamaps-legend {
  right: -50px;
  top: 0;
+}
+
+#d-map {
+ background-color: #A3CCFF;
 }
 
 /**
