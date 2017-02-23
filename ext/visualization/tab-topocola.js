@@ -33,6 +33,11 @@ var possible_colors = {
     "none" : "#ffffff",
 }
 
+var graph;
+var color;
+var d3cola;
+var svg;
+
 var default_link_color = "#999999";
 var default_link_opacity = "0.35";
 var link_dist = 80;
@@ -108,15 +113,14 @@ function updatePathProperties(prevPath, currPath, color) {
 
 function drawTopology(original_json_data, width, height) {
 
-    var forced_layout_json_text = createGraphJson(original_json_data);
-    graph = JSON.parse(forced_layout_json_text);
+    graph = convertLinks2Graph(original_json_data);
 
     console.log(JSON.stringify(graph));
 
     color = d3.scale.category20();
 
     d3cola = cola.d3adaptor().linkDistance(link_dist).avoidOverlaps(false)
-            .handleDisconnected(true).size([ width, height ]);
+            .handleDisconnected(false).size([ width, height ]);
 
     svg = d3.select("#TopologyGraph").append("svg").attr("id", "topology")
             .attr("width", width).attr("height", height);
@@ -161,6 +165,8 @@ function drawTopo() {
         return d.name + " node " + d.type;
     }).attr("fill", function(d) {
         return (d.type == "host") ? "white" : color(d.group);
+    }).style("visibility", function(d) {
+        return (d.type == "placeholder") ? "hidden" : "visible";
     }).call(d3cola.drag);
 
     var label = svg.selectAll(".label").data(graph.nodes);
@@ -169,6 +175,8 @@ function drawTopo() {
         return d.type + " label";
     }).text(function(d) {
         return d.name;
+    }).style("visibility", function(d) {
+        return (d.type == "placeholder") ? "hidden" : "visible";
     }).call(d3cola.drag);
 
     d3cola.on("tick", function() {
