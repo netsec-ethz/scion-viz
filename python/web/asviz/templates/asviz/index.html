@@ -1,0 +1,128 @@
+{% load staticfiles %}
+
+<!DOCTYPE html>
+<!--
+ * Copyright 2017 ETH Zurich
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+-->
+<meta charset="utf-8">
+<html>
+<head>
+<title>SCION AS Visualization</title>
+<!-- Stylesheets -->
+{% block css %}
+  <link rel="stylesheet" href="{% static "css/style.css" %}" type="" media="screen" />
+  <link rel="stylesheet" href="{% static "css/topology.css" %}" />
+{% endblock css %}
+<!-- Scripts -->
+{%  block js %}
+  <script src="{% static "js/jquery-2.2.0.min.js" %}"></script>
+  <script src="{% static "js/cola.v3.min.js" %}"></script>
+  <script src="{% static "js/d3.v3.min.js" %}"></script>
+  <script src="{% static "js/topojson.min.js" %}"></script>
+  <script src="{% static "js/topology.js" %}" ></script>
+  <script src="{% static "js/tab-topocola.js" %}" ></script>
+  <script src="{% static "js/asviz.js" %}" ></script>
+{%  endblock %}
+</head>
+<body>
+ <div id='chart'>
+  <div id='title'>SCION AS Visualization</div>
+  <div id="info">
+   <ul>
+    <li><a href='https://scion-architecture.net'>SCION Website</a></li>
+    <li><a href='https://github.com/netsec-ethz/scion'>SCION</a> on
+     Github</li>
+    <li><a href='https://github.com/netsec-ethz/scion-viz'>SCION
+      Visualizations</a> on Github</li>
+   </ul>
+  </div>
+  <div id="as-viz">
+   <div id="as-menu">
+    <div id='as-select'>
+     <form method="GET">
+      Source AS: <input type="text" name="src" value="{{ src }}"
+       style="width: 50px;"> Destination AS: <input type="text"
+       name="dst" value="{{ dst }}" style="width: 50px;"> <input type="submit"
+       value="Submit" />
+     </form>
+    </div>
+    <div id='as-clear'>
+     <form action="{% url 'asviz:index' %}">
+      <input type="submit" value="Clear" />
+     </form>
+    </div>
+   </div>
+   <div id='graph-holder'>
+    <div id="as-pathtopo" style="text-align: center;"></div>
+    <div id="as-astopo"></div>
+    <div id="as-svrlist">
+     <h2>Selected Path Interfaces</h2>
+     {% if path_info %}
+     <p>{{ path_info | safe }}</p>
+     {% endif %}
+    </div>
+    <div id="as-iflist">
+     <h2>AS {{ dst }} Topology Servers</h2>
+     <p id="as-selection"></p>
+     <table id='server_table'>
+      <thead>
+       <tr>
+        <th id='key'></th>
+        <th id='value'></th>
+       </tr>
+      </thead>
+      <tbody>
+      </tbody>
+     </table>
+    </div>
+   </div>
+  </div>
+ </div>
+
+</body>
+
+
+<script>
+    var resFulltemp = {{ json_segtopo | safe }};
+    var resFull = resFulltemp.core_segments;
+    var resUp = resFulltemp.up_segments;
+    var resDown = resFulltemp.down_segments;
+    var path = resFull.if_lists.length - 1;
+    var jTopo = {{ json_pathtopo | safe }};
+    
+    // load path topology
+    var width = $("#as-pathtopo").width();
+    var height = $("#as-pathtopo").height();
+    if (height < 250) {
+        height = 250;
+    }
+    drawTopology("as-pathtopo", jTopo, width, height);
+    // add endpoint labels
+    topoSetup({
+        "source" : '{{ src }}',
+        "destination" : '{{ dst }}',
+    });
+    
+    // add AS topology layout
+    var width = $("#as-astopo").width();
+    var height = $("#as-astopo").height();
+    var graph = {{ json_astopo | safe }};
+    
+    var graph = parseTopo(graph);
+    
+    var svg = d3.select("#as-astopo").append("svg").attr("height", height).attr(
+            "width", width);
+
+</script>

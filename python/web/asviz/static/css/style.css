@@ -1,0 +1,206 @@
+body {
+ font-family: Arial, sans-serif;
+ background: #fefefe;
+ width: 800px;
+ margin: 0 auto;
+}
+
+/* LINKS */
+a:link {
+ color: blue;
+ text-decoration: none;
+}
+
+a:hover {
+ text-decoration: underline;
+}
+
+/* PAGE PANEL LAYOUT */
+#chart {
+ position: relative;
+}
+
+#as-viz {
+ position: absolute;
+ top: 90px;
+ width: 100%;
+}
+
+#title {
+ position: absolute;
+ font-size: 30px;
+ font-weight: 100;
+ top: 20px;
+}
+
+#info {
+ position: absolute;
+ font-size: 11px;
+ top: 18px;
+ width: 300px;
+ right: 0px;
+ line-height: 1.2;
+}
+
+#as-menu {
+ font-size: 14px
+}
+
+#as-menu div {
+ display: inline-block
+}
+
+#as-menu option {
+ font-size: 12px
+}
+
+#graph-holder {
+ width: 100%;
+ height: 700px;
+ position: relative;
+}
+
+#as-pathtopo, #as-svrlist, #as-astopo, #as-iflist {
+ position: absolute;
+}
+
+#as-pathtopo {
+ top: 10px;
+ width: 500px;
+ height: 350px;
+ border: 1px solid #ccc;
+}
+
+#as-astopo {
+ top: 360px;
+ height: 450px;
+ width: 500px;
+ border: 1px solid #ccc;
+}
+
+#as-iflist {
+ top: 360px;
+ height: 450px;
+ width: 290px;
+ left: 500px;
+ padding-left: 10px;
+ font-size: 12px;
+ border: 1px solid #ccc;
+}
+
+#as-svrlist {
+ top: 10px;
+ left: 500px;
+ height: 350px;
+ width: 300px;
+ border: 1px solid #ccc;
+}
+
+/* AS TOPOLOGY DATA LIST */
+
+#as-iflist {
+ overflow: scroll;
+ overflow-x: hidden;
+}
+
+#as-iflist table {
+ font-size: 10px;
+}
+
+#as-iflist table th#key {
+ width: 120px
+}
+
+#as-iflist table th#value {
+ width: 120px
+}
+
+#as-iflist h2 {
+ font-size: 14px;
+ margin: 4px;
+ text-align: center
+}
+
+#as-iflist tr:hover {
+ cursor: pointer;
+ background: lightgray;
+}
+
+#as-iflist tr {
+ opacity: 1
+}
+
+#as-svrlist {
+ font-size: 11px;
+ overflow: auto;
+ overflow-x: hidden;
+}
+
+/* PATH TOPOLOGY DATA LIST */
+ul {
+ padding-left: 1.2em;
+}
+
+ul.tree li {
+ list-style-type: none;
+ position: relative;
+}
+
+ul.tree li ul {
+ display: none;
+}
+
+ul.tree li.open>ul {
+ display: block;
+}
+
+ul.tree li a {
+ color: black;
+ text-decoration: none;
+}
+
+ul.tree li a:before {
+ height: 1em;
+ padding: 0 .1em;
+ font-size: .8em;
+ display: block;
+ position: absolute;
+ left: -1.3em;
+ top: .2em;
+}
+
+ul.tree li > a:not(:last-child):before {
+ content: '+';
+}
+
+ul.tree li.open > a:not(:last-child):before {
+ content: '-';
+}
+
+/* AS TOPOLOGY GRAPH */
+.link.as-peer {
+ fill: "none";
+ stroke: gray;
+ stroke-width: 3px;
+ stroke-dasharray: 5, 5;
+ opacity: 0.50;
+}
+
+.link.as-routing {
+ fill: "none";
+ stroke: gray;
+ stroke-width: 6px;
+ opacity: 0.50;
+}
+
+.link.as-parent, .link.as-child {
+ fill: "none";
+ stroke: gray;
+ stroke-width: 3px;
+ opacity: 0.50;
+}
+
+.link.as-in {
+ /* invisible internal AS links */
+ 
+}
