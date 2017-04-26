@@ -18,233 +18,87 @@
 -->
 <meta charset="utf-8">
 <style>
-html, body {
- height: 100%;
-}
-
-#divBody {
- height: 100%;
- min-height: 100%;
-}
-
-#divInst {
- float: left;
- width: 65%;
- height: 20%;
-}
-
-#divInstList {
- height: 100%;
- overflow: auto;
-}
-
-#divConfig {
- float: right;
- width: 30%;
- height: 20%;
- border: 1px solid gray;
- padding: 5px;
-}
-
-#divConfigList {
- height: 100%;
- overflow: auto;
-}
-
-#divMap {
- overflow: hidden;
- position: relative;
- width: 100%;
- height: 40%;
-}
-
-#interactiveMap {
- position: absolute;
- width: 100%;
- height: 100%;
-}
-
-#TopologyGraph {
- overflow: auto;
- position: absolute;
- width: 100%;
- height: 100%;
-}
-
-#divStats {
- float: left;
- width: 100%;
- height: 40%;
-}
-
-#divStatsWidget {
- overflow: auto;
- height: 100%;
-}
-
-table {
- border-collapse: collapse;
- border: 1px solid black;
-}
-
-th {
- text-align: left;
- border: 1px solid black;
-}
-
-td:first-child {
- text-align: left;
- font-weight: bold;
-}
-
-td {
- text-align: right;
- padding-right: 5px;
- padding-left: 5px;
-}
-
-tr:nth-child(even) {
- background-color: #66CCFF
-}
-
-.datamaps-legend dt, .datamaps-legend dd {
- float: none;
-}
-
-.datamaps-legend {
- right: -50px;
- top: 0;
-}
-
-.link {
- fill: none;
- stroke: #666;
- stroke-width: 1.5px;
-}
-
-#ROUTING {
- fill: green;
-}
-
-.link.ROUTING {
- stroke-width: 5.5px;
-}
-
-.link.PEER {
- stroke-dasharray: 0, 2 1;
-}
-
-circle {
- fill: #ccc;
- stroke: #333;
- stroke-width: 1.5px;
-}
-
-text {
- font: 13px sans-serif;
- pointer-events: none;
- text-shadow: 0 1px 0 #fff, 1px 0 0 #fff, 0 -1px 0 #fff, -1px 0 0 #fff;
-}
-
-.nodes.ROUTING {
- stroke-width: 2.5px;
-}
-
-.link.SELECTED {
- stroke: red;
-}
-
-#tabs {
- font-size: 14px;
-}
-
-.tabs li {
- list-style: none;
- display: inline;
-}
-
-.tabs a {
- padding: 5px 10px;
- display: inline-block;
- background: #666;
- color: #fff;
- text-decoration: none;
- border: 1px solid #66CCFF;
-}
-
-.tabs a.active {
- background: #fff;
- color: #000;
- font-weight: bold;
-}
 </style>
 <link rel="stylesheet" href="css/jquery-ui.min.css">
+<link rel="stylesheet" href="css/visualization.css">
+<link rel="stylesheet" href="css/topology.css">
+<link href="./map.html"></link>
 <script src="js/jquery-2.2.0.min.js"></script>
 <script src="js/jquery-ui.min.js"></script>
 <script src="js/d3.min.js"></script>
+<script src="js/cola.min.js"></script>
 <script src="js/topojson.min.js"></script>
 <script src="js/datamaps.world.hires.min.js"></script>
 <script src="data/map-data.js"></script>
 <script src="./networking.js"></script>
 <script src="./tab-stats.js"></script>
-<script src="./tab-topoweb.js"></script>
-<script src="./tab-location.js"></script>
+<script src="./topology.js"></script>
+<script src="./tab-topocola.js"></script>
+<script src="./location.js"></script>
+<script src="./tab-g-maps.js"></script>
 <script src="./main.js"></script>
 </head>
 <body>
  <div id="divBody">
-  <div id="divInst">
-   <span style="font-weight: bold;">Instructions:</span><br>
-   <div id="divInstList">
-    <ul>
-     <li><span style="font-weight: bold;">Map Scroll:</span> Click
-      and drag the map to the desired position.</li>
-     <li><span style="font-weight: bold;">Map Zoom:</span> Position
-      cursor to desired zoom point and use a scroll wheel to zoom.</li>
-     <li><span style="font-weight: bold;">Path Select:</span> Click
-      the desired URL below and change the Path radio button.</li>
-     <li><span style="font-weight: bold;">Topology
-       Orientation:</span> Click and drag any node to the desired position.</li>
-     <li><span style="font-weight: bold;">Stats Host:</span>
-      Address auto-detected from Proxy Manager.</li>
-     </li>
+  <div id="divFixed">
+   <div id="divInst">
+    <span style="font-weight: bold;">Instructions:</span> <br>
+    <div id="divInstList">
+     <ul>
+      <li><span style="font-weight: bold;">Map Scroll:</span> Click
+       and drag the map to the desired position.</li>
+      <li><span style="font-weight: bold;">Map Zoom:</span>
+       Position cursor to desired zoom point and use a scroll wheel to
+       zoom.</li>
+      <li><span style="font-weight: bold;">Path Select:</span>
+       Click the desired URL below and change the Path radio button.</li>
+      <li><span style="font-weight: bold;">Topology
+        Orientation:</span> Click and drag any node to the desired position.</li>
+      <li><span style="font-weight: bold;">Stats Host:</span>
+       Address auto-detected from Proxy Manager.</li>
+     </ul>
+    </div>
+   </div>
+   <div id="divConfig">
+    <span style="font-weight: bold;">Configuration:</span> <span
+     id="error_msg" style="font-weight: bold; color: red;"></span> <br>
+    <br>
+    <div id="divConfigList">
+     <div>
+      ISD Whitelist: <input type="checkbox" id="ckbCheckAllIsd" /> <label>All
+       ISDs </label>
+      <div id="checkBoxesIsd"></div>
+     </div>
+     <div>
+      Stats Host: <span id="address" style="font-weight: bold;"></span>
+      <br>
+     </div>
+     <div>
+      <input id="list" value="Update Stats" type="button"> <input
+       id="clear" value="Clear Stale Stats" type="button">
+     </div>
+    </div>
+   </div>
+  </div>
+  <div id="divResizable">
+   <div id="divTabs" class="vpanel">
+    <ul id="divTabsHeader" class='tabs'>
+     <li><a href='#tabTopology'>Topology</a></li>
+     <li><a href='#tabLocation'>Location</a></li>
     </ul>
-   </div>
-  </div>
-  <div id="divConfig">
-   <span style="font-weight: bold;">Configuration:</span> <span
-    id="error_msg" style="font-weight: bold; color: red;"></span><br>
-   <br>
-   <div id="divConfigList">
-    <div>
-     ISD Whitelist: <input type="checkbox" id="ckbCheckAllIsd" /><label>All
-      ISDs</label>
-     <div id="checkBoxesIsd"></div>
+    <div id='tabLocation'>
+     <div id="map-canvas"></div>
+     <webview id="g-map" src="./map.html" partition="google-maps"></webview>
     </div>
-    <div>
-     Stats Host: <span id="address" style="font-weight: bold;"></span><br>
+    <div id='tabTopology'>
+     <div id="TopologyGraph"></div>
     </div>
-    <div>
-     <input id="list" value="Update Stats" type="button"> <input
-      id="clear" value="Clear Stale Stats" type="button">
-    </div>
+    <div id='handle' class="ui-resizable-handle ui-resizable-s"></div>
    </div>
-  </div>
-  <div id="divMap">
-   <ul class='tabs'>
-    <li><a href='#tabLocation'>Location</a></li>
-    <li><a href='#tabTopology'>Topology</a></li>
-   </ul>
-   <div id='tabLocation'>
-    <div id="interactiveMap"></div>
+   <div id="divStats" class="vpanel">
+    <div id="divStatsHeader">Socket Proxy Data:</div>
+    <div id="divStatsWidget" class="urlStatsWidget"></div>
    </div>
-   <div id='tabTopology'>
-    <div id="TopologyGraph"></div>
-   </div>
-  </div>
-  <div id="divStats">
-   <span style="font-weight: bold;">Socket Proxy Data:</span><br>
-   <div id="divStatsWidget" class="urlStatsWidget"></div>
   </div>
  </div>
 </body>

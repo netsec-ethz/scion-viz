@@ -37,7 +37,7 @@ chrome.runtime.onMessageExternal.addListener(function(request, sender,
             }, function(config) {
                 console.log(JSON.stringify(config));
                 var c = config.value;
-                var proxyAddr = null;
+                var proxyAddr = '127.0.0.1';
                 if (c.mode === 'fixed_servers' && c.rules
                         && c.rules.singleProxy) {
                     proxyAddr = c.rules.singleProxy.host;
