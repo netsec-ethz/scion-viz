@@ -348,7 +348,7 @@ def p_as_marking(s, asms, asmsidx):
     s.append("<li><a href='#'>Hashtree Root: %s</a>" % asms.hashTreeRoot.hex())
     s.append("<li><a href='#'>Signature: %s</a>" % asms.sig.hex())
     s.append("<li><a href='#'>AS MTU: %s</a>" % asms.mtu)
-    s.append("<li><a href='#'>Chain: %s</a>" % asms.chain.hex())
+    #s.append("<li><a href='#'>Chain: %s</a>" % asms.chain.hex())
     pcbmsidx = 0
     for pcbms in asms.pcbms:
         p_pcb_marking(s, pcbms, pcbmsidx)
