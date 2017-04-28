@@ -52,6 +52,13 @@ chrome.runtime.onMessageExternal.addListener(function(request, sender,
     }
 });
 
+chrome.runtime.onMessageExternal.addListener(function(request, sender,
+        sendResponse) {
+    if (sender.id == PROXYMGR_EXT_ID) {
+        handleProxyManagerRequest(request);
+    }
+});
+
 window.addEventListener("load", function() {
     var address = document.getElementById("address");
     var list = document.getElementById("list");
