@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# Copyright 2016 ETH Zurich
+# Copyright 2017 ETH Zurich
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -31,34 +31,32 @@ from lib.packet.opaque_field import (
 )
 from lib.packet.host_addr import HostAddrIPv4
 
-
+# defaults
 s_isd_as = ISD_AS("1-18")
 s_ip = haddr_parse(1, "127.1.18.1")
 c_isd_as = ISD_AS("2-26")
 c_ip = haddr_parse(1, "127.2.26.1")
 
-parser = argparse.ArgumentParser(description='SCION AS Path Viewer requires source and destination ISD-ASes to analyze.')
-# required
-parser.add_argument('src_isdas', type=str, help='ISD-AS source.')
-parser.add_argument('dst_isdas', type=str, help='ISD-AS destination.')
-# optional
-parser.add_argument('-t', action="store_true", default=False, help='display destination AS topology')
-parser.add_argument('-p', action="store_true", default=False, help='display announced paths')
-parser.add_argument('-s', action="store_true", default=False, help='display available segments overview')
-parser.add_argument('-u', type=int, help='display # up segment detail (0-based)')
-parser.add_argument('-d', type=int, help='display # down segment detail (0-based)')
-parser.add_argument('-c', type=int, help='display # core segment detail (0-based)')
-args = None
-args = parser.parse_args()
 
-s_isd_as = ISD_AS(args.src_isdas)
-c_isd_as = ISD_AS(args.dst_isdas)
+def init():
+    parser = argparse.ArgumentParser(description='SCION AS Path Viewer requires source and destination ISD-ASes to analyze.') # required
+    parser.add_argument('src_isdas', type=str, help='ISD-AS source.')
+    parser.add_argument('dst_isdas', type=str, help='ISD-AS destination.') # optional
+    parser.add_argument('-t', action="store_true", default=False, help='display destination AS topology')
+    parser.add_argument('-p', action="store_true", default=False, help='display announced paths')
+    parser.add_argument('-s', action="store_true", default=False, help='display available segments overview')
+    parser.add_argument('-u', type=int, help='display # up segment detail (0-based)')
+    parser.add_argument('-d', type=int, help='display # down segment detail (0-based)')
+    parser.add_argument('-c', type=int, help='display # core segment detail (0-based)')
+    args = parser.parse_args()
+    s_isd_as = ISD_AS(args.src_isdas)
+    c_isd_as = ISD_AS(args.dst_isdas)
+    print("")
+    print("SCION AS Viewer for path...")
+    print("(src) %s =======================> %s (dst)" % (args.src_isdas, args.dst_isdas))
+    return args, c_isd_as, s_isd_as
 
-print("")
-print("SCION AS Viewer for path...")
-print("(src) %s =======================> %s (dst)" % (args.src_isdas, args.dst_isdas))
-
-def get_path_info(myaddr, dst_isd_as):
+def print_as_viewer_info(myaddr, dst_isd_as):
 
     addr = haddr_parse("IPV4", "127.%s.%s.254" % (c_isd_as._isd, c_isd_as._as))
     conf_dir = "%s/ISD%s/AS%s/endhost" % (GEN_PATH, c_isd_as._isd, c_isd_as._as)
@@ -66,7 +64,6 @@ def get_path_info(myaddr, dst_isd_as):
         
     if args.t:
         t = sd.topology
-        print("")
         print("----------------- AS TOPOLOGY: %s" % t.isd_as)
         print("is_core_as: %s" % t.is_core_as)
         print("mtu: %s" % t.mtu)
@@ -88,14 +85,19 @@ def get_path_info(myaddr, dst_isd_as):
             print("----------------- ZOOKEEPER:")
             print("%s" % s)
 
-    if args.p:
+    if not args.t: 
+        # get_paths req. all segments and paths, not topology
         paths, error = sd.get_paths(s_isd_as)
+        csegs = sd.core_segments()
+        dsegs = sd.down_segments()
+        usegs = sd.up_segments()
+
+    if args.p:
         if error != 0:
             print("Error: %s" % error)
         i = 0
         # enumerate all paths
         for path in paths:
-            print("")
             print("----------------- PATH %s" % (i + 1))
             print("MTU: %s" % path.p.mtu)
             print("Interfaces Len: %s" % len(path.p.interfaces))
@@ -112,34 +114,24 @@ def get_path_info(myaddr, dst_isd_as):
             
             i += 1
         
-    csegs = sd.core_segments()
-    dsegs = sd.down_segments()
-    usegs = sd.up_segments()
-#     seg_summary = False
-#     if args.s:
-#         seg_summary = True
-
-    # enumerate core segments
     if args.s:
+        # enumerate core segments
         csegidx = 0
+        print("CORES %s" % csegs.__len__())
         for cseg in csegs:
-            print("CORE SEGMENT %s" % csegidx)
-#             if seg_summary:
-#                 print("CORE SEGMENT %s" % csegidx)
-#             else:
             p_segment(cseg, csegidx, "CORE")
             csegidx += 1
 
-    # enumerate down segments
-    if args.d or args.s:
+        # enumerate down segments
         dsegidx = 0
+        print("DOWNS %s" % dsegs.__len__())
         for dseg in dsegs:
             p_segment(dseg, dsegidx, "DOWN")
             dsegidx += 1
 
-    # enumerate up segments
-    if args.u or args.s:
+        # enumerate up segments
         usegidx = 0
+        print("UPS %s" % usegs.__len__())
         for useg in usegs:
             p_segment(useg, usegidx, "UP")
             usegidx += 1
@@ -201,7 +193,6 @@ def p_as_marking(asms, idx):
     print("  Hashtree Root: %s" % asms.hashTreeRoot.hex())
     print("  Signature: %s" % asms.sig.hex())
     print("  AS MTU: %s" % asms.mtu)
-    print("  Chain: %s" % asms.chain.hex())
     pcbmsidx = 0
     for pcbms in asms.pcbms:
         p_pcb_marking(pcbms, pcbmsidx)
@@ -215,6 +206,7 @@ def p_pcb_marking(pcbms, idx):
     print("    %s" % HopOpaqueField(pcbms.hof))
 
 
+args, c_isd_as, s_isd_as = init()
 caddr = SCIONAddr.from_values(c_isd_as, c_ip)
-path_info = get_path_info(caddr, s_isd_as)
+print_as_viewer_info(caddr, s_isd_as)
 

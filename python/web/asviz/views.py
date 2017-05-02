@@ -39,7 +39,7 @@ c_isd_as = ISD_AS("2-26")
 c_ip = haddr_parse(1, "127.2.26.1")
 sd = None
 
-def get_path_info(sd, myaddr, dst_isd_as):
+def get_as_view_html(sd, myaddr, dst_isd_as):
     s = []
     s.append("<ul class='tree'>")
 
@@ -121,8 +121,8 @@ def j_segments(segs):
         for asms in seg.p.asms:
             core.append({
                 "ISD":ISD_AS(asms.isdas)._isd,
-                "AS":ISD_AS(asms.isdas)._as, 
-                "IFID":0, 
+                "AS":ISD_AS(asms.isdas)._as,
+                "IFID":0,
             })
         cores.append(core)
     path = {}
@@ -199,7 +199,6 @@ def j_zookeeper_node(v):
         "type": "server",
         "class": "ZOOKEEPER",
         "addr": v,
-        # "port": v, 
     }
 
 def j_server_node(v, name):
@@ -348,7 +347,6 @@ def p_as_marking(s, asms, asmsidx):
     s.append("<li><a href='#'>Hashtree Root: %s</a>" % asms.hashTreeRoot.hex())
     s.append("<li><a href='#'>Signature: %s</a>" % asms.sig.hex())
     s.append("<li><a href='#'>AS MTU: %s</a>" % asms.mtu)
-    #s.append("<li><a href='#'>Chain: %s</a>" % asms.chain.hex())
     pcbmsidx = 0
     for pcbms in asms.pcbms:
         p_pcb_marking(s, pcbms, pcbmsidx)
@@ -382,7 +380,7 @@ def index(request):
         conf_dir = "%s/ISD%s/AS%s/endhost" % (GEN_PATH, c_isd_as._isd, c_isd_as._as)
         sd = SCIONDaemon.start(conf_dir, addr)
 
-        path_info = get_path_info(sd, caddr, s_isd_as)
+        path_info = get_as_view_html(sd, caddr, s_isd_as)
 
         j_path = []
         paths, error = sd.get_paths(s_isd_as)
