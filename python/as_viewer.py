@@ -13,12 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """
-:mod:`as_viewer` --- 
+:mod:`as_viewer` ---
 =================================================
 """
 
 # Stdlib
 import argparse
+import pprint
 
 # SCION
 from endhost.sciond import SCIONDaemon
@@ -34,9 +35,8 @@ from lib.packet.host_addr import HostAddrIPv4
 # defaults
 s_isd_as = ISD_AS("1-18")
 s_ip = haddr_parse(1, "127.1.18.1")
-c_isd_as = ISD_AS("2-26")
-c_ip = haddr_parse(1, "127.2.26.1")
-
+d_isd_as = ISD_AS("2-26")
+d_ip = haddr_parse(1, "127.2.26.1")
 
 def init():
     parser = argparse.ArgumentParser(description='SCION AS Path Viewer requires source and destination ISD-ASes to analyze.') # required
@@ -45,99 +45,99 @@ def init():
     parser.add_argument('-t', action="store_true", default=False, help='display destination AS topology')
     parser.add_argument('-p', action="store_true", default=False, help='display announced paths')
     parser.add_argument('-s', action="store_true", default=False, help='display available segments overview')
-    parser.add_argument('-u', type=int, help='display # up segment detail (0-based)')
-    parser.add_argument('-d', type=int, help='display # down segment detail (0-based)')
-    parser.add_argument('-c', type=int, help='display # core segment detail (0-based)')
+    parser.add_argument('-u', type=int, help='display # up segment detail (1-based)')
+    parser.add_argument('-d', type=int, help='display # down segment detail (1-based)')
+    parser.add_argument('-c', type=int, help='display # core segment detail (1-based)')
     args = parser.parse_args()
     s_isd_as = ISD_AS(args.src_isdas)
-    c_isd_as = ISD_AS(args.dst_isdas)
+    d_isd_as = ISD_AS(args.dst_isdas)
     print("")
     print("SCION AS Viewer for path...")
     print("(src) %s =======================> %s (dst)" % (args.src_isdas, args.dst_isdas))
-    return args, c_isd_as, s_isd_as
+    return args, d_isd_as, s_isd_as
 
 def print_as_viewer_info(myaddr, dst_isd_as):
-
-    addr = haddr_parse("IPV4", "127.%s.%s.254" % (c_isd_as._isd, c_isd_as._as))
-    conf_dir = "%s/ISD%s/AS%s/endhost" % (GEN_PATH, c_isd_as._isd, c_isd_as._as)
+    addr = haddr_parse("IPV4", "127.%s.%s.254" % (d_isd_as._isd, d_isd_as._as))
+    conf_dir = "%s/ISD%s/AS%s/endhost" % (GEN_PATH, d_isd_as._isd, d_isd_as._as)
     sd = SCIONDaemon.start(conf_dir, addr)
-        
-    if args.t:
+    # arguments
+    if args.t: # as topology
         t = sd.topology
-        print("----------------- AS TOPOLOGY: %s" % t.isd_as)
-        print("is_core_as: %s" % t.is_core_as)
-        print("mtu: %s" % t.mtu)
-        for s in t.beacon_servers:
-            p_server_element(s, "BEACON")
-        for s in t.certificate_servers:
-            p_server_element(s, "CERTIFICATE")
-        for s in t.path_servers:
-            p_server_element(s, "PATH")
-        for s in t.sibra_servers:
-            p_server_element(s, "SIBRA")    
-        for s in t.parent_border_routers:
-            p_router_element(s, "PARENT BORDER")
-        for s in t.child_border_routers:
-            p_router_element(s, "CHILD BORDER")
-        for s in t.peer_border_routers:
-            p_router_element(s, "PEER BORDER")
-        for s in t.zookeepers:
-            print("----------------- ZOOKEEPER:")
-            print("%s" % s)
-
-    if not args.t: 
+        print_as_topology(t)
+    else: # if not args.t
         # get_paths req. all segments and paths, not topology
         paths, error = sd.get_paths(s_isd_as)
+        if error != 0:
+            print("Error: %s" % error)
         csegs = sd.core_segments()
         dsegs = sd.down_segments()
         usegs = sd.up_segments()
-
     if args.p:
-        if error != 0:
-            print("Error: %s" % error)
-        i = 0
-        # enumerate all paths
-        for path in paths:
-            print("----------------- PATH %s" % (i + 1))
-            print("MTU: %s" % path.p.mtu)
-            print("Interfaces Len: %s" % len(path.p.interfaces))
-    
-            # enumerate path interfaces
-            for interface in path.p.interfaces:       
-                isd_as = ISD_AS(interface.isdas)
-                link = interface.ifID
-                try:
-                    addr = sd.ifid2br[link].addr
-                except KeyError:
-                    addr = ''
-                print("%s-%s (%s) %s" % (isd_as._isd, isd_as._as, link, addr))
-            
-            i += 1
-        
-    if args.s:
-        # enumerate core segments
-        csegidx = 0
-        print("CORES %s" % csegs.__len__())
-        for cseg in csegs:
-            p_segment(cseg, csegidx, "CORE")
-            csegidx += 1
+        print_paths(addr, sd, paths)
+    if args.s: # display segments summary
+        print_segments_summary(csegs, dsegs, usegs)
+    if args.c: # display N core segment
+        p_segment(csegs[args.c - 1], args.c, "CORE")
+    if args.d: # display N down segment
+        p_segment(dsegs[args.d - 1], args.d, "DOWN")
+    if args.u: # display N up segment
+        p_segment(usegs[args.u - 1], args.u, "UP")
 
-        # enumerate down segments
-        dsegidx = 0
-        print("DOWNS %s" % dsegs.__len__())
-        for dseg in dsegs:
-            p_segment(dseg, dsegidx, "DOWN")
-            dsegidx += 1
+def print_as_topology(t):
+    print("----------------- AS TOPOLOGY: %s" % t.isd_as)
+    print("is_core_as: %s" % t.is_core_as)
+    print("mtu: %s" % t.mtu)
+    for s in t.beacon_servers:
+        p_server_element(s, "BEACON")
+    for s in t.certificate_servers:
+        p_server_element(s, "CERTIFICATE")
+    for s in t.path_servers:
+        p_server_element(s, "PATH")
+    for s in t.sibra_servers:
+        p_server_element(s, "SIBRA")
+    for s in t.core_border_routers:
+        p_router_element(s, "CORE")
+    for s in t.parent_border_routers:
+        p_router_element(s, "PARENT")
+    for s in t.child_border_routers:
+        p_router_element(s, "CHILD")
+    for s in t.peer_border_routers:
+        p_router_element(s, "PEER")
+    for s in t.zookeepers:
+        p_zookeeper(s, "ZOOKEEPER")
 
-        # enumerate up segments
-        usegidx = 0
-        print("UPS %s" % usegs.__len__())
-        for useg in usegs:
-            p_segment(useg, usegidx, "UP")
-            usegidx += 1
+def print_paths(addr, sd, paths):
+    i = 0
+    # enumerate all paths
+    for path in paths:
+        print("----------------- PATH %s" % (i + 1))
+        print("MTU: %s" % path.p.mtu)
+        print("Interfaces Len: %s" % len(path.p.interfaces))
+        # enumerate path interfaces
+        for interface in path.p.interfaces:
+            isd_as = ISD_AS(interface.isdas)
+            link = interface.ifID
+            try:
+                addr = sd.ifid2br[link].addr
+            except KeyError:
+                addr = ''
+            print("%s-%s (%s) %s" % (isd_as._isd, isd_as._as, link, addr))
 
-    print("")
+        i += 1
 
+def print_segments_summary(csegs, dsegs, usegs):
+    print("----------------- SEGMENTS")
+    print_enum_segments(csegs, "CORE")
+    print_enum_segments(dsegs, "DOWN")
+    print_enum_segments(usegs, "UP")
+
+def print_enum_segments(segs, type):
+    segidx = 0
+    for seg in segs:
+        p = seg.p
+        # seg.flags
+        print("%s\t%s\thops: %s\t\tinterface id: %s" % (type, segidx + 1, p.asms.__len__(), p.ifID))
+        segidx += 1
 
 def p_server_element(s, name):
     print("----------------- %s SERVER:" % name)
@@ -146,12 +146,16 @@ def p_server_element(s, name):
     print("Port: %s" % s.port)
 
 def p_router_element(s, name):
-    print("----------------- %s ROUTER:" % name)
+    print("----------------- %s BORDER ROUTER:" % name)
     print("Address: %s" % HostAddrIPv4(s.addr))
     print("Name: %s" % s.name)
     print("Port: %s" % s.port)
     p_interface_element(s.interface)
-        
+
+def p_zookeeper(s, name):
+    print("----------------- %s:" % name)
+    print("Address: %s" % s)
+
 def p_interface_element(i):
     print("  ----------------- INTERFACE:")
     print("  Address: %s" % HostAddrIPv4(i.addr))
@@ -168,11 +172,9 @@ def p_interface_element(i):
     print("  To UDP Port: %s" % i.to_udp_port)
 
 def p_segment(seg, idx, name):
-    print("")
-    print("----------------- %s SEGMENT %s" % (name, idx + 1))        
+    print("----------------- %s SEGMENT %s" % (name, idx + 1))
     print("Expiration Time: %s" % seg._min_exp)
     p = seg.p
-    
     # InfoOpaqueField
     print("%s" % InfoOpaqueField(p.info))
     # PathSegment
@@ -205,8 +207,8 @@ def p_pcb_marking(pcbms, idx):
     print("    Out: %s (%s)" % (ISD_AS(pcbms.outIA), pcbms.outIF))
     print("    %s" % HopOpaqueField(pcbms.hof))
 
-
-args, c_isd_as, s_isd_as = init()
-caddr = SCIONAddr.from_values(c_isd_as, c_ip)
+# parse commands, query sciond, display results
+args, d_isd_as, s_isd_as = init()
+caddr = SCIONAddr.from_values(d_isd_as, d_ip)
 print_as_viewer_info(caddr, s_isd_as)
 

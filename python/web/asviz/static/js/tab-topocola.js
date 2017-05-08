@@ -119,11 +119,11 @@ function drawTopology(div_id, original_json_data, width, height) {
     d3cola = cola.d3adaptor().linkDistance(link_dist).avoidOverlaps(true)
             .handleDisconnected(true).size([ width, height ]);
 
-    svg = d3.select("#" + div_id).append("svg").attr("id", "topology")
-            .attr("width", width).attr("height", height);
+    svg = d3.select("#" + div_id).append("svg").attr("id", "topology").attr(
+            "width", width).attr("height", height);
 
     drawTopo();
-
+    drawLegend();
     topoColor({
         "source" : "none",
         "destination" : "none",
@@ -196,7 +196,9 @@ function drawTopo() {
             return d.y + (h / 4);
         });
     });
+}
 
+function drawLegend() {
     // Legend
     var legend = svg.selectAll(".legend").data(color.domain()).enter().append(
             "g").attr("class", "legend").attr("transform", function(d, i) {
@@ -243,17 +245,17 @@ function drawPath(res, path, color) {
     } else {
         routes.push(path);
     }
-    var pathids = [];
+    var path_ids = [];
     for (var p = 0; p < routes.length; p++) {
         var pNum = parseInt(routes[p]);
         // select the target path, and make iteration as amount of how many
         for (var ifNum = 0; ifNum < res.if_lists[pNum].length; ifNum++) {
             var ifRes = res.if_lists[pNum][ifNum];
-            pathids.push(ifRes.ISD + '-' + ifRes.AS);
+            path_ids.push(ifRes.ISD + '-' + ifRes.AS);
         }
     }
     topoSetup({
-        "path1" : pathids
+        "path1" : path_ids
     });
     topoColor({
         "path1" : color
@@ -270,7 +272,8 @@ function restorePath() {
 
 function resize_topology() {
     if (typeof self.jTopo !== "undefined") {
-        var rect = document.getElementById("chart-holder").getBoundingClientRect();
+        var rect = document.getElementById("chart-holder")
+                .getBoundingClientRect();
         var width = rect.width - 15
         var height = (rect.height - 50 - 5) - 15;
         if (height < 600) {
