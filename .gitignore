@@ -37,3 +37,6 @@ nosetests.xml
 
 # Eclipse
 .settings
+
+db.sqlite3
+

@@ -123,19 +123,17 @@ function createGraphJson(original_json_data) {
         var asB = b.b.split('-')[1];
         var coreA = (a.ltype == typeRouting) ? 0 : 1;
         var coreB = (b.ltype == typeRouting) ? 0 : 1;
-        if (isdA < isdB)
-            return -1;
-        if (isdA > isdB)
-            return 1;
-        if (coreA < coreB)
-            return -1;
-        if (coreA > coreB)
-            return 1;
-        if (asA < asB)
-            return -1;
-        if (asA > asB)
-            return 1;
-        return 0;
+        var isdDiff = isdA - isdB;
+        var coreDiff = coreA - coreB;
+        var asDiff = asA - asB;
+        if (isdDiff != 0)
+            return isdDiff;
+        else if (coreDiff != 0)
+            return coreDiff;
+        else if (asDiff != 0)
+            return asDiff;
+        else
+            return 0;
     });
 
     // make node structure first
@@ -205,8 +203,8 @@ function convertData(topology) {
     var ISDAS = new RegExp("^[0-9]*-[0-9]*$");
     var ISD = new RegExp("^[0-9]*");
     var AS = new RegExp("[0-9]*$");
-
-    for ( var key in topology) {
+    var key;
+    for (key in topology) {
         if (ISDAS.test(key)) {
             var type = topology[key]["level"].toLowerCase();
             var core = (type == "core") ? 0 : 1;
@@ -222,10 +220,11 @@ function convertData(topology) {
             i++;
         }
     }
-
-    for ( var source in topology) {
+    var source;
+    for (source in topology) {
         if (ISDAS.test(source)) {
-            for ( var target in topology[source]["links"]) {
+            var target;
+            for (target in topology[source]["links"]) {
                 graph["links"].push({
                     source : graph["ids"][source],
                     target : graph["ids"][target],

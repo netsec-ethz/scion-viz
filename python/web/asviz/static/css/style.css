@@ -186,7 +186,7 @@ ul.tree li.open > a:not(:last-child):before {
  opacity: 0.50;
 }
 
-.link.as-routing {
+.link.as-core, .link.as-routing {
  fill: "none";
  stroke: gray;
  stroke-width: 6px;
@@ -202,5 +202,5 @@ ul.tree li.open > a:not(:last-child):before {
 
 .link.as-in {
  /* invisible internal AS links */
- 
+
 }

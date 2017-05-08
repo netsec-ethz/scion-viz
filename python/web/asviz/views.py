@@ -18,8 +18,9 @@ from django.shortcuts import get_object_or_404, render
 from django.http import HttpResponseRedirect, HttpResponse
 from django.core.urlresolvers import reverse
 
-import pprint
+# Stdlib
 import json
+import pprint
 
 # SCION
 from endhost.sciond import SCIONDaemon
@@ -32,89 +33,71 @@ from lib.packet.opaque_field import (
 )
 from lib.packet.host_addr import HostAddrIPv4
 
+# topology class definitions
+topo_servers = ['BEACON', 'CERTIFICATE', 'PATH', 'SIBRA']
+topo_br = ['CORE', 'PARENT', 'CHILD', 'PEER']
+topo_zk = ['ZOOKEEPER']
+
 # defaults
 s_isd_as = ISD_AS("1-18")
 s_ip = haddr_parse(1, "127.1.18.1")
-c_isd_as = ISD_AS("2-26")
-c_ip = haddr_parse(1, "127.2.26.1")
-sd = None
+d_isd_as = ISD_AS("2-26")
+d_ip = haddr_parse(1, "127.2.26.1")
 
-def get_as_view_html(sd, myaddr, dst_isd_as):
+def get_as_view_html(sd, t, topo, paths, csegs, usegs, dsegs):
     s = []
     s.append("<ul class='tree'>")
-
-    t = sd.topology
-    p_as_topology(s, t)
-        
-    paths, error = sd.get_paths(dst_isd_as)
-    i = 0
-    pcolor = 'black'
-    # enumerate all paths
-    for path in paths:
-        s.append("<li seg-type='PATH' seg-num=%s><a href='#' style='color:%s; font-weight:bold;'>PATH %s</a>" % (i, pcolor, i + 1))
-        s.append("<ul>")
-        
-        s.append("<li><a href='#'>MTU: %s</a>" % path.p.mtu)
-        p_path_interfaces(s, sd, path.p)
-        i += 1
-        s.append("</ul>")
-
-    # enumerate core segments
-    segs = sd.core_segments()
-    segidx = 0
-    for seg in segs:
-        p_segment(s, seg, segidx, "CORE", 'purple')
-        segidx += 1
-
-    # enumerate down segments
-    segs = sd.down_segments()
-    segidx = 0
-    for seg in segs:
-        p_segment(s, seg, segidx, "DOWN", 'red')
-        segidx += 1
-
-    # enumerate up segments
-    segs = sd.up_segments()
-    segidx = 0
-    for seg in segs:
-        p_segment(s, seg, segidx, "UP", 'green')
-        segidx += 1
-
-    s.append("</ul>")
+    html_as_topology(s, t, topo)
+    html_paths(sd, s, paths)
+    html_all_segments(s, csegs, usegs, dsegs)
+    indent_close(s)
 
     out_str = ''
     for str in s:
         out_str += (str + '\n')
-    
     return out_str
 
-def p_as_topology(s, t):
-    s.append("<li><a href='#'>AS TOPOLOGY: %s</a>" % t.isd_as)
-    s.append("<ul>")
-    s.append("<li><a href='#'>is_core_as: %s</a>" % t.is_core_as)
-    s.append("<li><a href='#'>mtu: %s</a>" % t.mtu)
-    for v in t.beacon_servers:
-        p_server_element(s, v, "BEACON")
-    for v in t.certificate_servers:
-        p_server_element(s, v, "CERTIFICATE")
-    for v in t.path_servers:
-        p_server_element(s, v, "PATH")
-    for v in t.sibra_servers:
-        p_server_element(s, v, "SIBRA")    
-    for v in t.parent_border_routers:
-        p_router_element(s, v, "PARENT BORDER")
-    for v in t.child_border_routers:
-        p_router_element(s, v, "CHILD BORDER")
-    for v in t.peer_border_routers:
-        p_router_element(s, v, "PEER BORDER")
-    for v in t.zookeepers:
-        s.append("<li><a href='#'>ZOOKEEPER:</a>")
-        s.append("<ul>")
-        s.append("<li><a href='#'>%s</a>" % v)
-        s.append("</ul>")
-    s.append("</ul>")
+def html_as_topology(s, t, topo):
+    list_add(s, "AS TOPOLOGY: %s" % t.isd_as)
+    indent_open(s)
+    list_add(s, "is_core_as: %s" % t.is_core_as)
+    list_add(s, "mtu: %s" % t.mtu)
+    for servers in topo:
+        idx = 1
+        for v in topo[servers]:
+            if servers in topo_servers:
+                p_server_element(s, v, servers)
+            elif servers in topo_br:
+                p_router_element(s, v, servers)
+            elif servers in topo_zk:
+                p_zookeeper(s, v, idx)
+            idx += 1
+    indent_close(s)
 
-def j_segments(segs):
+def html_paths(sd, s, paths):
+    i = 0
+    # enumerate all paths
+    for path in paths:
+        list_add_head(s, i, "PATH", "black")
+        indent_open(s)
+        list_add(s, "MTU: %s" % path.p.mtu)
+        p_path_interfaces(s, sd, path.p)
+        i += 1
+        indent_close(s)
+
+def html_all_segments(s, csegs, usegs, dsegs):
+    # enumerate segments
+    html_segment(csegs, s, "CORE", "purple")
+    html_segment(dsegs, s, "DOWN", "red")
+    html_segment(usegs, s, "UP", "green")
+
+def html_segment(segs, s, name, color):
+    segidx = 0
+    for seg in segs:
+        p_segment(s, seg, segidx, name, color)
+        segidx += 1
+
+def get_json_segments(segs):
     cores = []
     for seg in segs:
         core = []
@@ -129,80 +112,67 @@ def j_segments(segs):
     path["if_lists"] = cores
     return path
 
-def j_all_segments(sd):
+def get_json_all_segments(csegs, usegs, dsegs):
     data = {}
-
-    segs = sd.core_segments()
-    data["core_segments"] = j_segments(segs)
-    
-    segs = sd.up_segments()
-    data["up_segments"] = j_segments(segs)
-    
-    segs = sd.down_segments()
-    data["down_segments"] = j_segments(segs)
-        
+    data["core_segments"] = get_json_segments(csegs)
+    data["up_segments"] = get_json_segments(usegs)
+    data["down_segments"] = get_json_segments(dsegs)
     return data
 
-def j_as_topology(sd):
-    t = sd.topology
+def json_append_server(nodes, links, isd_as, v, type):
+    nodes.append(get_json_server_node(v, type))
+    links.append(get_json_internal_link(isd_as, v.name))
+    return nodes, links
+
+def json_append_router(nodes, links, isd_as, v, type):
+    nodes.append(get_json_router_node(v, type))
+    nodes.append(get_json_interface_node(v))
+    links.append(get_json_interface_link(v))
+    links.append(get_json_internal_link(isd_as, v.name))
+    return nodes, links
+
+def json_append_zookeeper(nodes, links, isd_as, v, name, idx):
+    nodes.append(get_json_zookeeper_node(v, name, idx))
+    links.append(get_json_internal_link(isd_as, "zk-%s" % idx))
+    return nodes, links
+
+def get_json_as_topology(t, topo):
     nodes = []
     links = []
     isd_as = t.isd_as.__str__()
     nodes.append({ "name": isd_as, "type": "core" })
-
-    for v in t.beacon_servers:
-        nodes.append(j_server_node(v, "BEACON"))
-        links.append(j_internal_link(isd_as, v.name))
-    for v in t.certificate_servers:
-        nodes.append(j_server_node(v, "CERTIFICATE"))
-        links.append(j_internal_link(isd_as, v.name))
-    for v in t.path_servers:
-        nodes.append(j_server_node(v, "PATH"))
-        links.append(j_internal_link(isd_as, v.name))
-    for v in t.sibra_servers:
-        nodes.append(j_server_node(v, "SIBRA"))    
-        links.append(j_internal_link(isd_as, v.name))
-    for v in t.parent_border_routers:
-        nodes.append(j_router_node(v, "PARENT BORDER"))
-        nodes.append(j_interface_node(v))
-        links.append(j_interface_link(v))
-        links.append(j_internal_link(isd_as, v.name))
-    for v in t.child_border_routers:
-        nodes.append(j_router_node(v, "CHILD BORDER"))
-        nodes.append(j_interface_node(v))
-        links.append(j_interface_link(v))
-        links.append(j_internal_link(isd_as, v.name))
-    for v in t.peer_border_routers:
-        nodes.append(j_router_node(v, "PEER BORDER"))
-        nodes.append(j_interface_node(v))
-        links.append(j_interface_link(v))
-        links.append(j_internal_link(isd_as, v.name))
-    for v in t.zookeepers:
-        nodes.append(j_zookeeper_node(v))
-        links.append(j_internal_link(isd_as, "zk"))
-
+    for servers in topo:
+        idx = 1
+        for v in topo[servers]:
+            if servers in topo_servers:
+                nodes, links = json_append_server(nodes, links, isd_as, v, servers)
+            elif servers in topo_br:
+                nodes, links = json_append_router(nodes, links, isd_as, v, servers)
+            elif servers in topo_zk:
+                nodes, links = json_append_zookeeper(nodes, links, isd_as, v, servers, idx)
+            idx += 1
     graph = {}
     graph["nodes"] = nodes
     graph["links"] = links
     return graph
 
-def j_internal_link(src, dst):
-    return { 
+def get_json_internal_link(src, dst):
+    return {
         "source": src,
         "target": dst,
         "type": "as-in"
-    }         
+    }
 
-def j_zookeeper_node(v):
-    return { 
-        "name": "zk",
+def get_json_zookeeper_node(v, name, idx):
+    return {
+        "name": "zk-%s" % idx,
         "type": "server",
-        "class": "ZOOKEEPER",
+        "class": name,
         "addr": v,
     }
 
-def j_server_node(v, name):
-    return { 
+def get_json_server_node(v, name):
+    return {
         "name": v.name,
         "type": "server",
         "class": name,
@@ -210,11 +180,11 @@ def j_server_node(v, name):
         "port": v.port
     }
 
-def j_router_node(v, name):
-    return { 
+def get_json_router_node(v, name):
+    return {
         "name": v.name,
         "type": "router",
-        "class": name,
+        "class": "%s BORDER" % name,
         "addr": HostAddrIPv4(v.addr).__str__(),
         "port": v.port,
         "if_addr": HostAddrIPv4(v.interface.addr).__str__(),
@@ -231,47 +201,44 @@ def j_router_node(v, name):
         "if_to_udp_port": v.interface.to_udp_port,
     }
 
-def j_interface_link(v):
-    return { 
+def get_json_interface_link(v):
+    return {
         "source": v.name,
         "target": v.interface.isd_as.__str__(),
-        "type": "as-" + v.interface.link_type.lower()
-    }         
+        "type": "as-%s" % v.interface.link_type.lower(),
+    }
 
-def j_interface_node(v):
-    return { 
+def get_json_interface_node(v):
+    return {
         "name": v.interface.isd_as.__str__(),
         "type": "interface",
         "class": "ISD-AS",
         "addr": HostAddrIPv4(v.interface.addr).__str__(),
         "port": v.interface.port
-    }         
+    }
 
-def j_path_interfaces(path):
+def get_json_path_interfaces(path):
     data = []
     last_i = None
     # enumerate path interfaces
-    for interface in path.interfaces:       
+    for interface in path.interfaces:
         if last_i:
-
             isdas_p = ISD_AS(interface.isdas)
             link_p = interface.ifID
-                
             isdas_n = ISD_AS(last_i.isdas)
             link_n = last_i.ifID
-
-            p = ('%s-%s' % (isdas_p._isd, isdas_p._as))
-            n = ('%s-%s' % (isdas_n._isd, isdas_n._as))
+            p = '%s-%s' % (isdas_p._isd, isdas_p._as)
+            n = '%s-%s' % (isdas_n._isd, isdas_n._as)
             data.append({"a":p, "b":n, "al":link_p, "bl":link_n, "ltype":"CHILD"})
             last_i = None
-        
+
         last_i = interface
 
     return data
 
 def p_path_interfaces(s, sd, path):
-    s.append("<li><a href='#'>Interfaces Len: %s</a>" % len(path.interfaces))
-    s.append("<ul>")
+    list_add(s, "Interfaces Len: %s" % len(path.interfaces))
+    indent_open(s)
     # enumerate path interfaces
     for interface in path.interfaces:
         isd_as = ISD_AS(interface.isdas)
@@ -280,87 +247,114 @@ def p_path_interfaces(s, sd, path):
             addr = sd.ifid2br[link].addr
         except KeyError:
             addr = ''
-        s.append("<li><a href='#'>%s-%s (%s) %s</a>" % (isd_as._isd, isd_as._as, link, addr))
-    
-    s.append("</ul>")
+        list_add(s, "%s-%s (%s) %s" % (isd_as._isd, isd_as._as, link, addr))
+
+    indent_close(s)
 
 def p_server_element(s, v, name):
-    s.append("<li><a href='#'>%s</a>" % v.name)
-    s.append("<ul>")
-    s.append("<li><a href='#'>%s SERVER</a>" % name)
-    s.append("<li><a href='#'>Address: %s</a>" % HostAddrIPv4(v.addr))
-    s.append("<li><a href='#'>Name: %s</a>" % v.name)
-    s.append("<li><a href='#'>Port: %s</a>" % v.port)
-    s.append("</ul>")
+    list_add(s, "%s" % v.name)
+    indent_open(s)
+    list_add(s, "%s SERVER" % name)
+    list_add(s, "Address: %s" % HostAddrIPv4(v.addr))
+    list_add(s, "Name: %s" % v.name)
+    list_add(s, "Port: %s" % v.port)
+    indent_close(s)
 
 def p_router_element(s, v, name):
-    s.append("<li><a href='#'>%s</a>" % v.name)
-    s.append("<ul>")
-    s.append("<li><a href='#'>%s ROUTER</a>" % name)
-    s.append("<li><a href='#'>Address: %s</a>" % HostAddrIPv4(v.addr))
-    s.append("<li><a href='#'>Name: %s</a>" % v.name)
-    s.append("<li><a href='#'>Port: %s</a>" % v.port)
+    list_add(s, "%s" % v.name)
+    indent_open(s)
+    list_add(s, "%s BORDER ROUTER" % name)
+    list_add(s, "Address: %s" % HostAddrIPv4(v.addr))
+    list_add(s, "Name: %s" % v.name)
+    list_add(s, "Port: %s" % v.port)
     p_interface_element(s, v.interface)
-    s.append("</ul>")
-        
+    indent_close(s)
+
+def p_zookeeper(s, v, idx):
+    list_add(s, "zk-%s" % idx)
+    indent_open(s)
+    list_add(s, "%s" % v)
+    indent_close(s)
+
 def p_interface_element(s, i):
-    s.append("<li><a href='#'>INTERFACE</a>")
-    s.append("<ul>")
-    s.append("<li><a href='#'>Address: %s</a>" % HostAddrIPv4(i.addr))
-    s.append("<li><a href='#'>Bandwidth: %s</a>" % i.bandwidth)
-    s.append("<li><a href='#'>Interface ID: %s</a>" % i.if_id)
-    s.append("<li><a href='#'>ISD AS: %s</a>" % i.isd_as)
-    s.append("<li><a href='#'>Link Type: %s</a>" % i.link_type)
-    s.append("<li><a href='#'>MTU: %s</a>" % i.mtu)
-    s.append("<li><a href='#'>Name: %s</a>" % i.name)
-    s.append("<li><a href='#'>Port: %s</a>" % i.port)
-    s.append("<li><a href='#'>UDP Port: %s</a>" % i.udp_port)
-    s.append("<li><a href='#'>To Address: %s</a>" % HostAddrIPv4(i.to_addr))
-    s.append("<li><a href='#'>To Interface ID: %s</a>" % i.to_if_id)
-    s.append("<li><a href='#'>To UDP Port: %s</a>" % i.to_udp_port)
-    s.append("</ul>")
+    list_add(s, "INTERFACE</a>")
+    indent_open(s)
+    list_add(s, "Address: %s" % HostAddrIPv4(i.addr))
+    list_add(s, "Bandwidth: %s" % i.bandwidth)
+    list_add(s, "Interface ID: %s" % i.if_id)
+    list_add(s, "ISD AS: %s" % i.isd_as)
+    list_add(s, "Link Type: %s" % i.link_type)
+    list_add(s, "MTU: %s" % i.mtu)
+    list_add(s, "Name: %s" % i.name)
+    list_add(s, "Port: %s" % i.port)
+    list_add(s, "UDP Port: %s" % i.udp_port)
+    list_add(s, "To Address: %s" % HostAddrIPv4(i.to_addr))
+    list_add(s, "To Interface ID: %s" % i.to_if_id)
+    list_add(s, "To UDP Port: %s" % i.to_udp_port)
+    indent_close(s)
 
 def p_segment(s, seg, idx, name, color):
-    s.append("<li seg-type='%s' seg-num=%s><a href='#' style='color:%s; font-weight:bold;'>%s SEGMENT %s</a>" % (name, idx, color, name, idx + 1))        
-    s.append("<ul>")
-    s.append("<li><a href='#'>Expiration Time: %s</a>" % seg._min_exp)
+    list_add_head(s, idx, name, color)
+    indent_open(s)
+    list_add(s, "Expiration Time: %s" % seg._min_exp)
     p = seg.p
     # InfoOpaqueField
-    s.append("<li><a href='#'>%s</a>" % InfoOpaqueField(p.info))
+    list_add(s, "%s" % InfoOpaqueField(p.info))
     # PathSegment
-    s.append("<li><a href='#'>Interface ID: %s</a>" % p.ifID)
-    s.append("<li><a href='#'>SIBRA Ext Up: %s</a>" % p.exts.sibra.up)
+    list_add(s, "Interface ID: %s" % p.ifID)
+    list_add(s, "SIBRA Ext Up: %s" % p.exts.sibra.up)
     asmsidx = 0
     for asms in p.asms:
         p_as_marking(s, asms, asmsidx)
         asmsidx += 1
-    s.append("</ul>")
+    indent_close(s)
 
 def p_as_marking(s, asms, asmsidx):
     # ASMarking
-    s.append("<li><a href='#'>AS Marking Block %s</a>" % (asmsidx + 1))
-    s.append("<ul>")
-    s.append("<li><a href='#'>AS: %s</a>" % ISD_AS(asms.isdas))
-    s.append("<li><a href='#'>TRC: v%s</a>" % asms.trcVer)
-    s.append("<li><a href='#'>Cert: v%s</a>" % asms.certVer)
-    s.append("<li><a href='#'>Interface ID Size: %s</a>" % asms.ifIDSize)
-    s.append("<li><a href='#'>Hashtree Root: %s</a>" % asms.hashTreeRoot.hex())
-    s.append("<li><a href='#'>Signature: %s</a>" % asms.sig.hex())
-    s.append("<li><a href='#'>AS MTU: %s</a>" % asms.mtu)
+    list_add(s, "AS Marking Block %s" % (asmsidx + 1))
+    indent_open(s)
+    list_add(s, "AS: %s" % ISD_AS(asms.isdas))
+    list_add(s, "TRC: v%s" % asms.trcVer)
+    list_add(s, "Cert: v%s" % asms.certVer)
+    list_add(s, "Interface ID Size: %s" % asms.ifIDSize)
+    list_add(s, "Hashtree Root: %s" % asms.hashTreeRoot.hex())
+    list_add(s, "Signature: %s" % asms.sig.hex())
+    list_add(s, "AS MTU: %s" % asms.mtu)
     pcbmsidx = 0
     for pcbms in asms.pcbms:
         p_pcb_marking(s, pcbms, pcbmsidx)
         pcbmsidx += 1
-    s.append("</ul>")
+    indent_close(s)
 
 def p_pcb_marking(s, pcbms, pcbmsidx):
     # PCBMarking
-    s.append("<li><a href='#'>PCB Marking Block %s</a>" % (pcbmsidx + 1))
+    list_add(s, "PCB Marking Block %s" % (pcbmsidx + 1))
+    indent_open(s)
+    list_add(s, "In: %s (%s)" % (ISD_AS(pcbms.inIA), pcbms.inIF))
+    list_add(s, "Out: %s (%s)" % (ISD_AS(pcbms.outIA), pcbms.outIF))
+    list_add(s, "%s" % HopOpaqueField(pcbms.hof))
+    indent_close(s)
+
+def indent_open(s):
     s.append("<ul>")
-    s.append("<li><a href='#'>In: %s (%s)</a>" % (ISD_AS(pcbms.inIA), pcbms.inIF))
-    s.append("<li><a href='#'>Out: %s (%s)</a>" % (ISD_AS(pcbms.outIA), pcbms.outIF))
-    s.append("<li><a href='#'>%s</a>" % HopOpaqueField(pcbms.hof))
+
+def indent_close(s):
     s.append("</ul>")
+
+def list_add(s, str):
+    s.append("<li><a href='#'>%s</a>" % str)
+
+def list_attr_add(s, name, idx):
+    s.append("<li seg-type='%s' seg-num=%s>" % (name, idx))
+
+def attr_add_style(s, color):
+    s.append("style='color:%s; font-weight:bold;'" % color)
+
+def list_add_head(s, idx, name, color):
+    list_attr_add(s, name, idx)
+    s.append("<a href='#' ")
+    attr_add_style(s, color)
+    s.append(">%s %s</a>" % (name, idx + 1))
 
 def index(request):
     json_pathtopo = None
@@ -372,29 +366,44 @@ def index(request):
         src = request.GET.get('src')
         dst = request.GET.get('dst')
         s_isd_as = ISD_AS(src)
-        c_isd_as = ISD_AS(dst)
-        
-        caddr = SCIONAddr.from_values(c_isd_as, c_ip)
+        d_isd_as = ISD_AS(dst)
 
-        addr = haddr_parse("IPV4", "127.%s.%s.254" % (c_isd_as._isd, c_isd_as._as))
-        conf_dir = "%s/ISD%s/AS%s/endhost" % (GEN_PATH, c_isd_as._isd, c_isd_as._as)
+        caddr = SCIONAddr.from_values(d_isd_as, d_ip)
+        addr = haddr_parse("IPV4", "0.0.0.0")
+        conf_dir = "%s/ISD%s/AS%s/endhost" % (GEN_PATH, d_isd_as._isd, d_isd_as._as)
         sd = SCIONDaemon.start(conf_dir, addr)
 
-        path_info = get_as_view_html(sd, caddr, s_isd_as)
+        t = sd.topology
+        topo = {
+            'BEACON': t.beacon_servers,
+            'CERTIFICATE': t.certificate_servers,
+            'PATH': t.path_servers,
+            'SIBRA': t.sibra_servers,
+            'CORE': t.core_border_routers,
+            'PARENT': t.parent_border_routers,
+            'CHILD': t.child_border_routers,
+            'PEER': t.peer_border_routers,
+            'ZOOKEEPER': t.zookeepers,
+        }
+        paths, error = sd.get_paths(s_isd_as)
+        if error != 0:
+            print("Error: %s" % error)
+        csegs = sd.core_segments()
+        dsegs = sd.down_segments()
+        usegs = sd.up_segments()
+
+        path_info = get_as_view_html(sd, t, topo, paths, csegs, usegs, dsegs)
 
         j_path = []
-        paths, error = sd.get_paths(s_isd_as)
         for path in paths:
-            j_path += j_path_interfaces(path.p)
-            pprint.pprint(j_path)
-
+            j_path += get_json_path_interfaces(path.p)
+            print(j_path)
         json_pathtopo = json.dumps(j_path)
+        json_astopo = json.dumps(get_json_as_topology(t, topo))
+        print(json_astopo)
 
-        json_astopo = json.dumps(j_as_topology(sd))
-        pprint.pprint(json_astopo)
-
-        json_segtopo = json.dumps(j_all_segments(sd))
-        pprint.pprint(json_segtopo)
+        json_segtopo = json.dumps(get_json_all_segments(csegs, usegs, dsegs))
+        print(json_segtopo)
 
     return render(request, 'asviz/index.html', {
         'json_pathtopo': json_pathtopo,

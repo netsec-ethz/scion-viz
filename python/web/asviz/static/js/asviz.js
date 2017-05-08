@@ -26,7 +26,7 @@ window.onload = function() {
     drawAsTopo();
 
     // PANEL: AS Topology Data List
-    document.getElementById("as-selection").innerHTML = "Click a server to see the detail.";
+    document.getElementById("as-selection").innerHTML = "Click on a server";
 }
 
 function setupPathSelection() {
@@ -140,7 +140,7 @@ function drawAsTopo() {
 
 }
 
-var selectedSvr;
+var selectedServer;
 function onAsServerClick(d) {
     ser_name = d.name;
     document.getElementById("as-selection").innerHTML = ser_name;
@@ -148,8 +148,10 @@ function onAsServerClick(d) {
     // display node details
     console.log(d);
     $('#server_table tbody > tr').remove();
-    for ( var k in d) {
-        if (typeof d[k] !== 'function') {
+    var k;
+    var graph_vars = [ 'x', 'y', 'px', 'py', 'fixed', 'weight', 'index' ];
+    for (k in d) {
+        if (typeof d[k] !== 'function' && !graph_vars.includes(k)) {
             $('#server_table').find('tbody').append(
                     "<tr><td>" + k + "</td><td>" + d[k] + "</td></tr>");
         }
@@ -159,12 +161,12 @@ function onAsServerClick(d) {
         return; // ignore core
     }
 
-    if (!selectedSvr) {
-        selectedSvr = this;
-        d3.select(selectedSvr).style('stroke', 'red');
+    if (!selectedServer) {
+        selectedServer = this;
+        d3.select(selectedServer).style('stroke', 'red');
     } else {
-        d3.select(selectedSvr).style('stroke', 'white');
-        selectedSvr = this;
-        d3.select(selectedSvr).style('stroke', 'red');
+        d3.select(selectedServer).style('stroke', 'white');
+        selectedServer = this;
+        d3.select(selectedServer).style('stroke', 'red');
     }
 }
