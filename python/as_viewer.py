@@ -20,6 +20,7 @@
 # Stdlib
 import argparse
 import pprint
+import ipaddress
 
 # SCION
 from endhost.sciond import SCIONDaemon
@@ -32,11 +33,18 @@ from lib.packet.opaque_field import (
 )
 from lib.packet.host_addr import HostAddrIPv4
 
+# topology class definitions
+topo_servers = ['BEACON', 'CERTIFICATE', 'PATH', 'SIBRA']
+topo_br = ['CORE', 'PARENT', 'CHILD', 'PEER']
+topo_zk = ['ZOOKEEPER']
+
 # defaults
 s_isd_as = ISD_AS("1-18")
 s_ip = haddr_parse(1, "127.1.18.1")
 d_isd_as = ISD_AS("2-26")
 d_ip = haddr_parse(1, "127.2.26.1")
+
+# pprint.pprint(d_ip.addr.__dict__)
 
 def init():
     parser = argparse.ArgumentParser(description='SCION AS Path Viewer requires source and destination ISD-ASes to analyze.') # required
@@ -57,14 +65,14 @@ def init():
     return args, d_isd_as, s_isd_as
 
 def print_as_viewer_info(myaddr, dst_isd_as):
-    addr = haddr_parse("IPV4", "127.%s.%s.254" % (d_isd_as._isd, d_isd_as._as))
+    addr = haddr_parse("IPV4", "0.0.0.0")
     conf_dir = "%s/ISD%s/AS%s/endhost" % (GEN_PATH, d_isd_as._isd, d_isd_as._as)
     sd = SCIONDaemon.start(conf_dir, addr)
     # arguments
     if args.t: # as topology
         t = sd.topology
         print_as_topology(t)
-    else: # if not args.t
+    if args.p or args.s or args.c or args.d or args.u:
         # get_paths req. all segments and paths, not topology
         paths, error = sd.get_paths(s_isd_as)
         if error != 0:
@@ -87,24 +95,25 @@ def print_as_topology(t):
     print("----------------- AS TOPOLOGY: %s" % t.isd_as)
     print("is_core_as: %s" % t.is_core_as)
     print("mtu: %s" % t.mtu)
-    for s in t.beacon_servers:
-        p_server_element(s, "BEACON")
-    for s in t.certificate_servers:
-        p_server_element(s, "CERTIFICATE")
-    for s in t.path_servers:
-        p_server_element(s, "PATH")
-    for s in t.sibra_servers:
-        p_server_element(s, "SIBRA")
-    for s in t.core_border_routers:
-        p_router_element(s, "CORE")
-    for s in t.parent_border_routers:
-        p_router_element(s, "PARENT")
-    for s in t.child_border_routers:
-        p_router_element(s, "CHILD")
-    for s in t.peer_border_routers:
-        p_router_element(s, "PEER")
-    for s in t.zookeepers:
-        p_zookeeper(s, "ZOOKEEPER")
+    topo = {
+        'BEACON': t.beacon_servers,
+        'CERTIFICATE': t.certificate_servers,
+        'PATH': t.path_servers,
+        'SIBRA': t.sibra_servers,
+        'CORE': t.core_border_routers,
+        'PARENT': t.parent_border_routers,
+        'CHILD': t.child_border_routers,
+        'PEER': t.peer_border_routers,
+        'ZOOKEEPER': t.zookeepers,
+    }
+    for servers in topo:
+        for s in topo[servers]:
+            if servers in topo_servers:
+                p_server_element(s, servers)
+            elif servers in topo_br:
+                p_router_element(s, servers)
+            elif servers in topo_zk:
+                p_zookeeper(s, servers)
 
 def print_paths(addr, sd, paths):
     i = 0

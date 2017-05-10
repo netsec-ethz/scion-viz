@@ -149,8 +149,9 @@ function onAsServerClick(d) {
     console.log(d);
     $('#server_table tbody > tr').remove();
     var k;
+    var graph_vars = [ 'x', 'y', 'px', 'py', 'fixed', 'weight', 'index' ];
     for (k in d) {
-        if (typeof d[k] !== 'function') {
+        if (typeof d[k] !== 'function' && !graph_vars.includes(k)) {
             $('#server_table').find('tbody').append(
                     "<tr><td>" + k + "</td><td>" + d[k] + "</td></tr>");
         }
