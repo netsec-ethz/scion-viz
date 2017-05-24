@@ -54,13 +54,13 @@ a:hover {
  font-size: 12px
 }
 
-#graph-holder {
+#as-graphs {
  width: 100%;
  height: 700px;
  position: relative;
 }
 
-#as-pathtopo, #as-svrlist, #as-astopo, #as-iflist {
+#as-pathtopo, #as-iflist, #as-astopo, #as-svrlist {
  position: absolute;
 }
 
@@ -73,22 +73,12 @@ a:hover {
 
 #as-astopo {
  top: 360px;
- height: 450px;
+ height: 350px;
  width: 500px;
  border: 1px solid #ccc;
 }
 
 #as-iflist {
- top: 360px;
- height: 450px;
- width: 290px;
- left: 500px;
- padding-left: 10px;
- font-size: 12px;
- border: 1px solid #ccc;
-}
-
-#as-svrlist {
  top: 10px;
  left: 500px;
  height: 350px;
@@ -96,47 +86,58 @@ a:hover {
  border: 1px solid #ccc;
 }
 
+#as-svrlist {
+ top: 360px;
+ height: 350px;
+ width: 290px;
+ left: 500px;
+ padding-left: 10px;
+ font-size: 12px;
+ border: 1px solid #ccc;
+}
+
 /* AS TOPOLOGY DATA LIST */
 
-#as-iflist {
+#as-svrlist {
  overflow: scroll;
  overflow-x: hidden;
 }
 
-#as-iflist table {
+#as-svrlist table {
  font-size: 10px;
 }
 
-#as-iflist table th#key {
+#as-svrlist table th#key {
  width: 120px
 }
 
-#as-iflist table th#value {
+#as-svrlist table th#value {
  width: 120px
 }
 
-#as-iflist h2 {
+#as-svrlist h2 {
  font-size: 14px;
  margin: 4px;
  text-align: center
 }
 
-#as-iflist tr:hover {
+#as-svrlist tr:hover {
  cursor: pointer;
  background: lightgray;
 }
 
-#as-iflist tr {
+#as-svrlist tr {
  opacity: 1
 }
 
-#as-svrlist {
+/* PATH TOPOLOGY DATA LIST */
+
+#as-iflist {
  font-size: 11px;
  overflow: auto;
  overflow-x: hidden;
 }
 
-/* PATH TOPOLOGY DATA LIST */
 ul {
  padding-left: 1.2em;
 }

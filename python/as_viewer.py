@@ -17,21 +17,14 @@
 =================================================
 """
 
-# Stdlib
 import argparse
 import pprint
-import ipaddress
-
-# SCION
 from endhost.sciond import SCIONDaemon
 from lib.defines import GEN_PATH
-from lib.packet.host_addr import haddr_parse
+from lib.packet.host_addr import HostAddrIPv4, haddr_parse
+from lib.packet.opaque_field import HopOpaqueField, InfoOpaqueField
 from lib.packet.scion_addr import ISD_AS, SCIONAddr
-from lib.packet.opaque_field import (
-    HopOpaqueField,
-    InfoOpaqueField,
-)
-from lib.packet.host_addr import HostAddrIPv4
+
 
 # topology class definitions
 topo_servers = ['BEACON', 'CERTIFICATE', 'PATH', 'SIBRA']
@@ -44,18 +37,16 @@ s_ip = haddr_parse(1, "127.1.18.1")
 d_isd_as = ISD_AS("2-26")
 d_ip = haddr_parse(1, "127.2.26.1")
 
-# pprint.pprint(d_ip.addr.__dict__)
-
 def init():
-    parser = argparse.ArgumentParser(description='SCION AS Path Viewer requires source and destination ISD-ASes to analyze.') # required
-    parser.add_argument('src_isdas', type=str, help='ISD-AS source.')
-    parser.add_argument('dst_isdas', type=str, help='ISD-AS destination.') # optional
-    parser.add_argument('-t', action="store_true", default=False, help='display destination AS topology')
-    parser.add_argument('-p', action="store_true", default=False, help='display announced paths')
-    parser.add_argument('-s', action="store_true", default=False, help='display available segments overview')
-    parser.add_argument('-u', type=int, help='display # up segment detail (1-based)')
-    parser.add_argument('-d', type=int, help='display # down segment detail (1-based)')
-    parser.add_argument('-c', type=int, help='display # core segment detail (1-based)')
+    parser = argparse.ArgumentParser(description = 'SCION AS Path Viewer requires source and destination ISD-ASes to analyze.') # required
+    parser.add_argument('src_isdas', type = str, help = 'ISD-AS source.')
+    parser.add_argument('dst_isdas', type = str, help = 'ISD-AS destination.') # optional
+    parser.add_argument('-t', action = "store_true", default = False, help = 'display destination AS topology')
+    parser.add_argument('-p', action = "store_true", default = False, help = 'display announced paths')
+    parser.add_argument('-s', action = "store_true", default = False, help = 'display available segments overview')
+    parser.add_argument('-u', type = int, help = 'display # up segment detail (1-based)')
+    parser.add_argument('-d', type = int, help = 'display # down segment detail (1-based)')
+    parser.add_argument('-c', type = int, help = 'display # core segment detail (1-based)')
     args = parser.parse_args()
     s_isd_as = ISD_AS(args.src_isdas)
     d_isd_as = ISD_AS(args.dst_isdas)
@@ -116,10 +107,10 @@ def print_as_topology(t):
                 p_zookeeper(s, servers)
 
 def print_paths(addr, sd, paths):
-    i = 0
+    i = 1
     # enumerate all paths
     for path in paths:
-        print("----------------- PATH %s" % (i + 1))
+        print("----------------- PATH %s" % i)
         print("MTU: %s" % path.p.mtu)
         print("Interfaces Len: %s" % len(path.p.interfaces))
         # enumerate path interfaces
@@ -141,11 +132,10 @@ def print_segments_summary(csegs, dsegs, usegs):
     print_enum_segments(usegs, "UP")
 
 def print_enum_segments(segs, type):
-    segidx = 0
+    segidx = 1
     for seg in segs:
         p = seg.p
-        # seg.flags
-        print("%s\t%s\thops: %s\t\tinterface id: %s" % (type, segidx + 1, p.asms.__len__(), p.ifID))
+        print("%s\t%s\thops: %s\t\tinterface id: %s" % (type, segidx, len(p.asms), p.ifID))
         segidx += 1
 
 def p_server_element(s, name):
@@ -189,14 +179,14 @@ def p_segment(seg, idx, name):
     # PathSegment
     print("Interface ID: %s" % p.ifID)
     print("SIBRA Ext Up: %s" % p.exts.sibra.up)
-    asmsidx = 0
+    asmsidx = 1
     for asms in p.asms:
         p_as_marking(asms, asmsidx)
         asmsidx += 1
 
 def p_as_marking(asms, idx):
     # ASMarking
-    print("  ----------------- AS Marking Block %s" % (idx + 1))
+    print("  ----------------- AS Marking Block %s" % idx)
     print("  AS: %s" % ISD_AS(asms.isdas))
     print("  TRC: v%s" % asms.trcVer)
     print("  Cert: v%s" % asms.certVer)
@@ -204,15 +194,16 @@ def p_as_marking(asms, idx):
     print("  Hashtree Root: %s" % asms.hashTreeRoot.hex())
     print("  Signature: %s" % asms.sig.hex())
     print("  AS MTU: %s" % asms.mtu)
-    pcbmsidx = 0
+    print("  Chain: %s" % asms.chain.hex())
+    pcbmsidx = 1
     for pcbms in asms.pcbms:
         p_pcb_marking(pcbms, pcbmsidx)
         pcbmsidx += 1
 
 def p_pcb_marking(pcbms, idx):
     # PCBMarking
-    print("    ----------------- PCB Marking Block %s" % (idx + 1))
-    print("    In: %s (%s)" % (ISD_AS(pcbms.inIA), pcbms.inIF))
+    print("    ----------------- PCB Marking Block %s" % idx)
+    print("    In: %s (%s) mtu = %s" % (ISD_AS(pcbms.inIA), pcbms.inIF, pcbms.inMTU))
     print("    Out: %s (%s)" % (ISD_AS(pcbms.outIA), pcbms.outIF))
     print("    %s" % HopOpaqueField(pcbms.hof))
 
