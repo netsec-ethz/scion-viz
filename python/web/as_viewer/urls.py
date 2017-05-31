@@ -14,12 +14,10 @@
 
 from django.conf.urls import include, url
 from django.contrib import admin
-from django.core.urlresolvers import reverse, reverse_lazy
-from django.http import HttpResponseRedirect
 
 
 urlpatterns = [
     url(r'^admin/', include(admin.site.urls)),
-    url(r'^asviz/', include('asviz.urls', namespace = "asviz")),
-    url(r'^$', include('asviz.urls', namespace = "asviz")),
+    url(r'^asviz/', include('asviz.urls', namespace="asviz")),
+    url(r'^$', include('asviz.urls', namespace="asviz")),
 ]

@@ -12,11 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from django.conf.urls import url
-
 from . import views
+from django.conf.urls import url
 
 
 urlpatterns = [
-    url(r'^$', views.index, name = 'index'),
+    url(r'^$', views.index, name='index'),
 ]

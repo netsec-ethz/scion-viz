@@ -18,7 +18,7 @@
 """
 
 import argparse
-import pprint
+
 from endhost.sciond import SCIONDaemon
 from lib.defines import GEN_PATH
 from lib.packet.host_addr import HostAddrIPv4, haddr_parse
@@ -28,7 +28,8 @@ from lib.packet.scion_addr import ISD_AS, SCIONAddr
 
 # topology class definitions
 topo_servers = ['BEACON', 'CERTIFICATE', 'PATH', 'SIBRA']
-topo_br = ['CORE', 'PARENT', 'CHILD', 'PEER']
+topo_br = ['CORE_BR', 'PARENT_BR', 'CHILD_BR', 'PEER_BR', 'BORDER']
+topo_if = ['CORE_IF', 'PARENT_IF', 'CHILD_IF', 'PEER_IF']
 topo_zk = ['ZOOKEEPER']
 
 # defaults
@@ -37,30 +38,42 @@ s_ip = haddr_parse(1, "127.1.18.1")
 d_isd_as = ISD_AS("2-26")
 d_ip = haddr_parse(1, "127.2.26.1")
 
+
 def init():
-    parser = argparse.ArgumentParser(description = 'SCION AS Path Viewer requires source and destination ISD-ASes to analyze.') # required
-    parser.add_argument('src_isdas', type = str, help = 'ISD-AS source.')
-    parser.add_argument('dst_isdas', type = str, help = 'ISD-AS destination.') # optional
-    parser.add_argument('-t', action = "store_true", default = False, help = 'display destination AS topology')
-    parser.add_argument('-p', action = "store_true", default = False, help = 'display announced paths')
-    parser.add_argument('-s', action = "store_true", default = False, help = 'display available segments overview')
-    parser.add_argument('-u', type = int, help = 'display # up segment detail (1-based)')
-    parser.add_argument('-d', type = int, help = 'display # down segment detail (1-based)')
-    parser.add_argument('-c', type = int, help = 'display # core segment detail (1-based)')
+    parser = argparse.ArgumentParser(
+        description='SCION AS Path Viewer requires source and destination ISD-ASes to analyze.')
+    parser.add_argument('src_isdas', type=str, help='ISD-AS source.')
+    parser.add_argument('dst_isdas', type=str,
+                        help='ISD-AS destination.')  # optional
+    parser.add_argument('-t', action="store_true", default=False,
+                        help='display destination AS topology')
+    parser.add_argument('-p', action="store_true",
+                        default=False, help='display announced paths')
+    parser.add_argument('-s', action="store_true", default=False,
+                        help='display available segments overview')
+    parser.add_argument(
+        '-u', type=int, help='display # up segment detail (1-based)')
+    parser.add_argument(
+        '-d', type=int, help='display # down segment detail (1-based)')
+    parser.add_argument(
+        '-c', type=int, help='display # core segment detail (1-based)')
     args = parser.parse_args()
     s_isd_as = ISD_AS(args.src_isdas)
     d_isd_as = ISD_AS(args.dst_isdas)
     print("")
     print("SCION AS Viewer for path...")
-    print("(src) %s =======================> %s (dst)" % (args.src_isdas, args.dst_isdas))
+    print("(src) %s =======================> %s (dst)" %
+          (args.src_isdas, args.dst_isdas))
     return args, d_isd_as, s_isd_as
+
 
 def print_as_viewer_info(myaddr, dst_isd_as):
     addr = haddr_parse("IPV4", "0.0.0.0")
-    conf_dir = "%s/ISD%s/AS%s/endhost" % (GEN_PATH, d_isd_as._isd, d_isd_as._as)
+    conf_dir = "%s/ISD%s/AS%s/endhost" % (GEN_PATH,
+                                          d_isd_as._isd, d_isd_as._as)
     sd = SCIONDaemon.start(conf_dir, addr)
     # arguments
-    if args.t: # as topology
+    if args.t:  # as topology
         t = sd.topology
         print_as_topology(t)
     if args.p or args.s or args.c or args.d or args.u:
@@ -73,30 +86,21 @@ def print_as_viewer_info(myaddr, dst_isd_as):
         usegs = sd.up_segments()
     if args.p:
         print_paths(addr, sd, paths)
-    if args.s: # display segments summary
+    if args.s:  # display segments summary
         print_segments_summary(csegs, dsegs, usegs)
-    if args.c: # display N core segment
+    if args.c:  # display N core segment
         p_segment(csegs[args.c - 1], args.c, "CORE")
-    if args.d: # display N down segment
+    if args.d:  # display N down segment
         p_segment(dsegs[args.d - 1], args.d, "DOWN")
-    if args.u: # display N up segment
+    if args.u:  # display N up segment
         p_segment(usegs[args.u - 1], args.u, "UP")
+
 
 def print_as_topology(t):
     print("----------------- AS TOPOLOGY: %s" % t.isd_as)
     print("is_core_as: %s" % t.is_core_as)
     print("mtu: %s" % t.mtu)
-    topo = {
-        'BEACON': t.beacon_servers,
-        'CERTIFICATE': t.certificate_servers,
-        'PATH': t.path_servers,
-        'SIBRA': t.sibra_servers,
-        'CORE': t.core_border_routers,
-        'PARENT': t.parent_border_routers,
-        'CHILD': t.child_border_routers,
-        'PEER': t.peer_border_routers,
-        'ZOOKEEPER': t.zookeepers,
-    }
+    topo = organize_topo(t)
     for servers in topo:
         for s in topo[servers]:
             if servers in topo_servers:
@@ -105,6 +109,7 @@ def print_as_topology(t):
                 p_router_element(s, servers)
             elif servers in topo_zk:
                 p_zookeeper(s, servers)
+
 
 def print_paths(addr, sd, paths):
     i = 1
@@ -117,13 +122,15 @@ def print_paths(addr, sd, paths):
         for interface in path.p.interfaces:
             isd_as = ISD_AS(interface.isdas)
             link = interface.ifID
+
             try:
-                addr = sd.ifid2br[link].addr
-            except KeyError:
+                addr, port = get_public_addr_array(sd.ifid2br[link])
+            except (KeyError):
                 addr = ''
             print("%s-%s (%s) %s" % (isd_as._isd, isd_as._as, link, addr))
 
         i += 1
+
 
 def print_segments_summary(csegs, dsegs, usegs):
     print("----------------- SEGMENTS")
@@ -131,44 +138,54 @@ def print_segments_summary(csegs, dsegs, usegs):
     print_enum_segments(dsegs, "DOWN")
     print_enum_segments(usegs, "UP")
 
+
 def print_enum_segments(segs, type):
     segidx = 1
     for seg in segs:
         p = seg.p
-        print("%s\t%s\thops: %s\t\tinterface id: %s" % (type, segidx, len(p.asms), p.ifID))
+        print("%s\t%s\thops: %s\t\tinterface id: %s" %
+              (type, segidx, len(p.asms), p.ifID))
         segidx += 1
 
+
 def p_server_element(s, name):
+    addr, port = get_public_addr(s)
     print("----------------- %s SERVER:" % name)
-    print("Address: %s" % HostAddrIPv4(s.addr))
+    print("Address: %s" % HostAddrIPv4(addr))
     print("Name: %s" % s.name)
-    print("Port: %s" % s.port)
+    print("Port: %s" % port)
+
 
 def p_router_element(s, name):
+    addr, port = get_public_addr_array(s)
     print("----------------- %s BORDER ROUTER:" % name)
-    print("Address: %s" % HostAddrIPv4(s.addr))
+    print("Address: %s" % HostAddrIPv4(addr))
     print("Name: %s" % s.name)
-    print("Port: %s" % s.port)
-    p_interface_element(s.interface)
+    print("Port: %s" % port)
+    interface = get_router_interface(s)
+    p_interface_element(interface)
+
 
 def p_zookeeper(s, name):
     print("----------------- %s:" % name)
     print("Address: %s" % s)
 
+
 def p_interface_element(i):
+    addr, port = get_public_addr(i)
+    to_addr, to_port = get_remote_addr(i)
     print("  ----------------- INTERFACE:")
-    print("  Address: %s" % HostAddrIPv4(i.addr))
+    print("  Address: %s" % HostAddrIPv4(addr))
     print("  Bandwidth: %s" % i.bandwidth)
     print("  Interface ID: %s" % i.if_id)
     print("  ISD AS: %s" % i.isd_as)
     print("  Link Type: %s" % i.link_type)
     print("  MTU: %s" % i.mtu)
     print("  Name: %s" % i.name)
-    print("  Port: %s" % i.port)
-    print("  UDP Port: %s" % i.udp_port)
-    print("  To Address: %s" % HostAddrIPv4(i.to_addr))
-    print("  To Interface ID: %s" % i.to_if_id)
-    print("  To UDP Port: %s" % i.to_udp_port)
+    print("  Port: %s" % port)
+    print("  To Address: %s" % HostAddrIPv4(to_addr))
+    print("  To Port: %s" % to_port)
+
 
 def p_segment(seg, idx, name):
     print("----------------- %s SEGMENT %s" % (name, idx + 1))
@@ -184,6 +201,7 @@ def p_segment(seg, idx, name):
         p_as_marking(asms, asmsidx)
         asmsidx += 1
 
+
 def p_as_marking(asms, idx):
     # ASMarking
     print("  ----------------- AS Marking Block %s" % idx)
@@ -194,21 +212,94 @@ def p_as_marking(asms, idx):
     print("  Hashtree Root: %s" % asms.hashTreeRoot.hex())
     print("  Signature: %s" % asms.sig.hex())
     print("  AS MTU: %s" % asms.mtu)
-    print("  Chain: %s" % asms.chain.hex())
     pcbmsidx = 1
     for pcbms in asms.pcbms:
         p_pcb_marking(pcbms, pcbmsidx)
         pcbmsidx += 1
 
+
 def p_pcb_marking(pcbms, idx):
     # PCBMarking
     print("    ----------------- PCB Marking Block %s" % idx)
-    print("    In: %s (%s) mtu = %s" % (ISD_AS(pcbms.inIA), pcbms.inIF, pcbms.inMTU))
+    print("    In: %s (%s) mtu = %s" %
+          (ISD_AS(pcbms.inIA), pcbms.inIF, pcbms.inMTU))
     print("    Out: %s (%s)" % (ISD_AS(pcbms.outIA), pcbms.outIF))
     print("    %s" % HopOpaqueField(pcbms.hof))
+
+
+def organize_topo(t):
+    try:
+        return {  # old api scion/commit/bec7de2b5e0d864b5b3dc5638eba41db4014fbd1
+            'BEACON': t.beacon_servers,
+            'CERTIFICATE': t.certificate_servers,
+            'PATH': t.path_servers,
+            'SIBRA': t.sibra_servers,
+            'CORE_BR': t.core_border_routers,
+            'PARENT_BR': t.parent_border_routers,
+            'CHILD_BR': t.child_border_routers,
+            'PEER_BR': t.peer_border_routers,
+            'ZOOKEEPER': t.zookeepers,
+        }
+    except (AttributeError):
+        return {  # current  api
+            'BEACON': t.beacon_servers,
+            'CERTIFICATE': t.certificate_servers,
+            'PATH': t.path_servers,
+            'SIBRA': t.sibra_servers,
+            'BORDER': t.border_routers,
+            'CORE_IF': t.core_interfaces,
+            'PARENT_IF': t.parent_interfaces,
+            'CHILD_IF': t.child_interfaces,
+            'PEER_IF': t.peer_interfaces,
+            'ZOOKEEPER': t.zookeepers,
+        }
+
+
+def get_router_interface(elem):
+    try:
+        interface = elem.interface
+    except (AttributeError):
+        interface = list(elem.interfaces.values())[0]
+    return interface
+
+
+def get_public_addr_array(elem):
+    try:
+        addr = elem.addr
+    except (AttributeError):
+        addr = elem.int_addrs[0].public[0][0]
+    try:
+        port = elem.port
+    except (AttributeError):
+        port = elem.int_addrs[0].public[0][1]
+    return addr, port
+
+
+def get_public_addr(elem):
+    try:
+        addr = elem.addr
+    except (AttributeError):
+        addr = elem.public[0][0]
+    try:
+        port = elem.port
+    except (AttributeError):
+        port = elem.public[0][1]
+    return addr, port
+
+
+def get_remote_addr(elem):
+    try:
+        addr = elem.to_addr
+    except (AttributeError):
+        addr = elem.remote[0][0]
+    try:
+        port = elem.to_udp_port
+    except (AttributeError):
+        port = elem.remote[0][1]
+    return addr, port
+
 
 # parse commands, query sciond, display results
 args, d_isd_as, s_isd_as = init()
 caddr = SCIONAddr.from_values(d_isd_as, d_ip)
 print_as_viewer_info(caddr, s_isd_as)
-

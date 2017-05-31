@@ -141,12 +141,13 @@ function drawAsTopo(div_id, json_astopo, width, height) {
     var nodes = svgAs.selectAll("circle").data(nodes).enter().append("circle")
             .attr("r", function(d) {
                 return (d.type == "root") ? 130 : r - 1;
-            }).on("click", onAsServerClick).attr("opacity", 0.5).style("fill",
-                    function(d, i) {
-                        return (d.type == "root") ? "none" : color(d.group);
-                    }).style("stroke-width", function(d) {
+            }).on("click", onAsServerClick).attr("opacity", function(d) {
+                return 0.5;
+            }).style("fill", function(d, i) {
+                return (d.type == "root") ? "none" : color(d.group);
+            }).style("stroke-width", function(d) {
                 return (d.type == "root") ? 6 : 2;
-            }).style("stroke", function(d, i) {
+            }).style("stroke", function(d) {
                 return colorServerDeselect;
             }).call(force.drag);
 
@@ -190,10 +191,16 @@ function onAsServerClick(d) {
     // allow root AS and all servers to be highlighted
     if (!selectedServer) {
         selectedServer = this;
-        d3.select(selectedServer).style('stroke', colorServerSelect);
+        updateNodeSelected(true, selectedServer);
     } else {
-        d3.select(selectedServer).style('stroke', colorServerDeselect);
+        updateNodeSelected(false, selectedServer);
         selectedServer = this;
-        d3.select(selectedServer).style('stroke', colorServerSelect);
+        updateNodeSelected(true, selectedServer);
     }
+}
+
+function updateNodeSelected(isSelected, selected) {
+    d3.select(selected).style('stroke',
+            isSelected ? colorServerSelect : colorServerDeselect);
+    d3.select(selected).attr('opacity', isSelected ? 1 : 0.5);
 }

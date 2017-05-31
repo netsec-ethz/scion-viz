@@ -2,8 +2,10 @@
 
 These are temporary instructions until the appropriate place is located on an updated deployment server. Some or all of these tools may end up migrating to another repository if need be.
 
-1. Clone [scion](https://github.com/netsec-ethz/scion) and submodules to an appropriate local dir. 
-1. Complete [scion-web](https://github.com/netsec-ethz/scion-web) setup instructions for scion/sub/web. 
+**NOTE:** The SCION daemon will return multiple paths as of the master branch commit: github.com/netsec-ethz/scion/commit/bec7de2b5e0d864b5b3dc5638eba41db4014fbd1. After that commit, most runs will only return one path.
+
+1. Clone [scion](https://github.com/netsec-ethz/scion) and submodules to an appropriate local dir.
+1. Complete [scion-web](https://github.com/netsec-ethz/scion-web) setup instructions for scion/sub/web.
 1. `cd scion/sub`
 1. `git clone https://github.com/mwfarb/scion-viz.git`
 1. `cd scion-viz`
