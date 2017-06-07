@@ -120,6 +120,8 @@ function drawAsTopo(div_id, json_astopo, width, height) {
     var color = d3.scale.category10();
     var nodes = graphAs.nodes;
     var links = graphAs.links;
+
+    var link_dist = 75;
     var r = 11;
 
     var texts = svgAs.selectAll("text").data(nodes).enter().append("text")
@@ -129,9 +131,9 @@ function drawAsTopo(div_id, json_astopo, width, height) {
                 return d.name;
             });
 
-    var force = d3.layout.force().nodes(nodes).links(links).size(
-            [ width, height ]).charge(-1000).gravity(0.1).friction(0.9)
-            .linkDistance(50).start();
+    var colaAs = cola.d3adaptor().size([ width, height ]).linkDistance(
+            link_dist).avoidOverlaps(true);
+    colaAs.nodes(nodes).links(links).start(30)
 
     var edges = svgAs.selectAll("line").data(links).enter().append("line")
             .style("stroke-linecap", "round").attr("class", function(d) {
@@ -149,23 +151,26 @@ function drawAsTopo(div_id, json_astopo, width, height) {
                 return (d.type == "root") ? 6 : 2;
             }).style("stroke", function(d) {
                 return colorServerDeselect;
-            }).call(force.drag);
+            }).call(colaAs.drag);
 
-    force.on("tick", function() {
+    colaAs.on("tick", function() {
+
         edges.attr("x1", function(d) {
             return Math.max(r, Math.min(width - r, d.source.x));
         }).attr("y1", function(d) {
-            return Math.max(r, Math.min(width - r, d.source.y));
+            return Math.max(r, Math.min(height - r - 14, d.source.y));
         }).attr("x2", function(d) {
             return Math.max(r, Math.min(width - r, d.target.x));
         }).attr("y2", function(d) {
-            return Math.max(r, Math.min(width - r, d.target.y));
+            return Math.max(r, Math.min(height - r - 14, d.target.y));
         });
+
         nodes.attr("cx", function(d) {
             return d.x = Math.max(r, Math.min(width - r, d.x));
         }).attr("cy", function(d) {
             return d.y = Math.max(r, Math.min(height - r - 14, d.y));
         });
+
         texts.attr("transform", function(d) {
             return "translate(" + d.x + "," + d.y + ")";
         });
@@ -181,7 +186,7 @@ function onAsServerClick(d) {
     $('#server_table tbody > tr').remove();
     var k;
     var graph_vars = [ 'x', 'y', 'px', 'py', 'fixed', 'weight', 'index',
-            'group' ];
+            'group', 'variable', 'bounds' ];
     for (k in d) {
         if (typeof d[k] !== 'function' && !graph_vars.includes(k)) {
             $('#server_table').find('tbody').append(

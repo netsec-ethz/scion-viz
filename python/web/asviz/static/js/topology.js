@@ -75,19 +75,23 @@ function sortTopologyGraph(graph) {
     }
     // sort for optimal color coding display
     graph.nodes.sort(function(a, b) {
-        var isd = ISD.exec(a.name) - ISD.exec(b.name);
-        if (isd == 0) {
-            var core = (a.type != typeCore) - (b.type != typeCore);
-            if (core == 0) {
-                var as = AS.exec(a.type) - AS.exec(b.type);
-                if (as == 0) {
-                    return 0;
+        var ph = (a.type != "placeholder") - (b.type != "placeholder");
+        if (ph == 0) {
+            var isd = ISD.exec(a.name) - ISD.exec(b.name);
+            if (isd == 0) {
+                var core = (a.type != typeCore) - (b.type != typeCore);
+                if (core == 0) {
+                    var as = AS.exec(a.type) - AS.exec(b.type);
+                    if (as == 0) {
+                        return 0;
+                    }
+                    return as;
                 }
-                return as;
+                return core;
             }
-            return core;
+            return isd;
         }
-        return isd;
+        return ph;
     });
     // adjust indexes to match
     for (var n = 0; n < graph.nodes.length; n++) {

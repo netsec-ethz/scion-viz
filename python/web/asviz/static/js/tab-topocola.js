@@ -38,15 +38,15 @@ var possible_colors = {
 
 var default_link_color = "#999999";
 var default_link_opacity = "0.35";
-var link_dist = 80;
 
+var link_dist = 80;
 var r = 20;
 var w = 90;
 var h = 35;
 
 // ------------------------------- Setup ----------------------------------
 
-function topoSetup(msg) {
+function topoSetup(msg, width, height) {
 
     if (graphPath == undefined) {
         console.error("No graphPath to add setup!!");
@@ -57,13 +57,14 @@ function topoSetup(msg) {
         setup[key] = msg[key];
     }
 
-    if (msg.hasOwnProperty("source") && !source_added) {
-        addLabel("source");
-        source_added = true;
-    }
+    // attempt to fix source and destination labels at bottom of graph
     if (msg.hasOwnProperty("destination") && !destination_added) {
-        addLabel("destination");
+        addLabel("destination", (width * .7), (height * .8));
         destination_added = true;
+    }
+    if (msg.hasOwnProperty("source") && !source_added) {
+        addLabel("source", (width * .1), (height * .8));
+        source_added = true;
     }
 }
 
@@ -115,6 +116,7 @@ function updatePathProperties(prevPath, currPath, color) {
 
 // -------------------------------- Topology ----------------------------------
 
+var pageBounds;
 function drawTopology(div_id, original_json_data, width, height) {
 
     if (original_json_data.length == 0) {
@@ -129,12 +131,18 @@ function drawTopology(div_id, original_json_data, width, height) {
     console.log(JSON.stringify(graphPath));
 
     colorPath = d3.scale.category20();
-
     colaPath = cola.d3adaptor().linkDistance(link_dist).avoidOverlaps(true)
-            .handleDisconnected(true).size([ width, height ])
-
+            .handleDisconnected(true).size([ width, height ]);
     svgPath = d3.select("#" + div_id).append("svg").attr("width", width).attr(
             "height", height);
+
+    pageBounds = {
+        x : 0,
+        y : 0,
+        width : width,
+        height : height
+    };
+    // var page = svgPath.append('rect').attr('id', 'page').attr(pageBounds);
 
     drawTopo();
     drawLegend();
@@ -147,12 +155,62 @@ function drawTopology(div_id, original_json_data, width, height) {
     });
 }
 
+function calcConstraints(realGraphNodes) {
+    var topLeft = {
+        x : pageBounds.x,
+        y : pageBounds.y,
+        fixed : true
+    };
+    var tlIndex = graphPath.nodes.push(topLeft) - 1;
+    var bottomRight = {
+        x : pageBounds.x + pageBounds.width,
+        y : pageBounds.y + pageBounds.height,
+        fixed : true
+    };
+    var brIndex = graphPath.nodes.push(bottomRight) - 1;
+    var constraints = [];
+
+    for (var i = 0; i < realGraphNodes.length; i++) {
+        constraints.push({
+            axis : 'x',
+            type : 'separation',
+            left : tlIndex,
+            right : i,
+            gap : r
+        });
+        constraints.push({
+            axis : 'y',
+            type : 'separation',
+            left : tlIndex,
+            right : i,
+            gap : r
+        });
+        constraints.push({
+            axis : 'x',
+            type : 'separation',
+            left : i,
+            right : brIndex,
+            gap : r
+        });
+        constraints.push({
+            axis : 'y',
+            type : 'separation',
+            left : i,
+            right : brIndex,
+            gap : r
+        });
+    }
+    return constraints;
+}
+
 function drawTopo() {
 
-    colaPath.nodes(graphPath.nodes).links(graphPath.links).start();
+    var realGraphNodes = graphPath.nodes.slice(0);
+    var constraints = calcConstraints(realGraphNodes);
+    colaPath.nodes(graphPath.nodes).links(graphPath.links).constraints(
+            constraints).start(30);
 
     var link = svgPath.selectAll(".link").data(graphPath.links);
-
     link.enter().append("line").attr(
             "class",
             function(d) {
@@ -160,11 +218,9 @@ function drawTopo() {
                         + " target-" + d.target.name;
             }).attr("stroke", default_link_color).attr("stroke-opacity",
             default_link_opacity);
-
     link.exit().remove();
 
-    var node = svgPath.selectAll(".node").data(graphPath.nodes);
-
+    var node = svgPath.selectAll(".node").data(realGraphNodes);
     node.enter().append("rect").attr("width", function(d) {
         return (d.type == "host") ? w : (2 * r)
     }).attr("height", function(d) {
@@ -181,8 +237,7 @@ function drawTopo() {
         return (d.type == "placeholder") ? "hidden" : "visible";
     }).call(colaPath.drag);
 
-    var label = svgPath.selectAll(".label").data(graphPath.nodes);
-
+    var label = svgPath.selectAll(".label").data(realGraphNodes);
     label.enter().append("text").attr("class", function(d) {
         return d.type + " label";
     }).text(function(d) {
@@ -192,22 +247,22 @@ function drawTopo() {
     }).call(colaPath.drag);
 
     colaPath.on("tick", function() {
+
         link.attr("x1", function(d) {
             return Math.max(r, Math.min(width - r, d.source.x));
         }).attr("y1", function(d) {
-            return Math.max(r, Math.min(width - r, d.source.y));
+            return Math.max(r, Math.min(height - r, d.source.y));
         }).attr("x2", function(d) {
             return Math.max(r, Math.min(width - r, d.target.x));
         }).attr("y2", function(d) {
-            return Math.max(r, Math.min(width - r, d.target.y));
+            return Math.max(r, Math.min(height - r, d.target.y));
         });
 
         node.attr("x", function(d) {
             var bound = Math.max(r, Math.min(width - r, d.x));
             return bound - ((d.type == "host") ? (w / 2) : r);
-
         }).attr("y", function(d) {
-            var bound = Math.max(r, Math.min(width - r, d.y))
+            var bound = Math.max(r, Math.min(height - r, d.y))
             return bound - ((d.type == "host") ? (h / 2) : r);
         });
 
@@ -223,6 +278,14 @@ function drawTopo() {
             var h = this.getBBox().height;
             return d.y + (h / 4);
         });
+
+        // page.attr(pageBounds = {
+        // x : topLeft.x,
+        // y : topLeft.y,
+        // width : bottomRight.x - topLeft.x,
+        // height : bottomRight.y - topLeft.y
+        // });
+
     });
 }
 
@@ -247,20 +310,28 @@ function drawLegend() {
             });
 }
 
-function addLabel(label) {
-    graphPath["ids"][label] = Object.keys(graphPath["ids"]).length;
+function addLabel(label, x, y) {
+    // remove last 2 constraint nodes from the end first
+    graphPath.nodes.pop();
+    graphPath.nodes.pop();
 
-    graphPath["nodes"].push({
+    // update graph elements with additions
+    graphPath["ids"][label] = Object.keys(graphPath["ids"]).length;
+    graphPath.nodes.push({
         name : label,
         group : 1,
-        type : "host"
+        type : "host",
+        x : x,
+        y : y,
+        fixed : true,
     });
-    graphPath["links"].push({
+    graphPath.links.push({
         source : graphPath["ids"][setup[label]],
         target : graphPath["ids"][label],
-        type : "host"
+        type : "host",
     });
 
+    // redraw graph, recalculating constraints
     drawTopo();
 }
 

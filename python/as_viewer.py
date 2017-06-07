@@ -18,7 +18,11 @@
 """
 
 import argparse
+import logging
+import os
 
+import lib.app.sciond as lib_sciond
+from endhost.sciond import SCIOND_API_SOCKDIR
 from endhost.sciond import SCIONDaemon
 from lib.defines import GEN_PATH
 from lib.packet.host_addr import HostAddrIPv4, haddr_parse
@@ -40,6 +44,11 @@ d_ip = haddr_parse(1, "127.2.26.1")
 
 
 def init():
+    logger = logging.getLogger()
+    handler = logging.StreamHandler()
+    logger.addHandler(handler)
+    logger.setLevel(logging.INFO)
+
     parser = argparse.ArgumentParser(
         description='SCION AS Path Viewer requires source and destination ISD-ASes to analyze.')
     parser.add_argument('src_isdas', type=str, help='ISD-AS source.')
@@ -60,10 +69,10 @@ def init():
     args = parser.parse_args()
     s_isd_as = ISD_AS(args.src_isdas)
     d_isd_as = ISD_AS(args.dst_isdas)
-    print("")
-    print("SCION AS Viewer for path...")
-    print("(src) %s =======================> %s (dst)" %
-          (args.src_isdas, args.dst_isdas))
+    logging.info("")
+    logging.info("SCION AS Viewer for path...")
+    logging.info("(src) %s =======================> %s (dst)" %
+                 (args.src_isdas, args.dst_isdas))
     return args, d_isd_as, s_isd_as
 
 
@@ -72,6 +81,15 @@ def print_as_viewer_info(myaddr, dst_isd_as):
     conf_dir = "%s/ISD%s/AS%s/endhost" % (GEN_PATH,
                                           d_isd_as._isd, d_isd_as._as)
     sd = SCIONDaemon.start(conf_dir, addr)
+
+#     _api_addr = os.path.join(SCIOND_API_SOCKDIR, "sd%s.sock" %
+#                              dst_isd_as)
+#     _connector = lib_sciond.init(_api_addr)
+#     flags = lib_sciond.PathRequestFlags(flush=False)
+#     path_entries = lib_sciond.get_paths(
+#         s_isd_as, flags=flags, connector=_connector)
+#     logging.info(path_entries)
+
     # arguments
     if args.t:  # as topology
         t = sd.topology
@@ -80,7 +98,7 @@ def print_as_viewer_info(myaddr, dst_isd_as):
         # get_paths req. all segments and paths, not topology
         paths, error = sd.get_paths(s_isd_as)
         if error != 0:
-            print("Error: %s" % error)
+            logging.error("Error: %s" % error)
         csegs = sd.core_segments()
         dsegs = sd.down_segments()
         usegs = sd.up_segments()
@@ -97,9 +115,9 @@ def print_as_viewer_info(myaddr, dst_isd_as):
 
 
 def print_as_topology(t):
-    print("----------------- AS TOPOLOGY: %s" % t.isd_as)
-    print("is_core_as: %s" % t.is_core_as)
-    print("mtu: %s" % t.mtu)
+    logging.info("----------------- AS TOPOLOGY: %s" % t.isd_as)
+    logging.info("is_core_as: %s" % t.is_core_as)
+    logging.info("mtu: %s" % t.mtu)
     topo = organize_topo(t)
     for servers in topo:
         for s in topo[servers]:
@@ -115,9 +133,9 @@ def print_paths(addr, sd, paths):
     i = 1
     # enumerate all paths
     for path in paths:
-        print("----------------- PATH %s" % i)
-        print("MTU: %s" % path.p.mtu)
-        print("Interfaces Len: %s" % len(path.p.interfaces))
+        logging.info("----------------- PATH %s" % i)
+        logging.info("MTU: %s" % path.p.mtu)
+        logging.info("Interfaces Len: %s" % len(path.p.interfaces))
         # enumerate path interfaces
         for interface in path.p.interfaces:
             isd_as = ISD_AS(interface.isdas)
@@ -127,13 +145,14 @@ def print_paths(addr, sd, paths):
                 addr, port = get_public_addr_array(sd.ifid2br[link])
             except (KeyError):
                 addr = ''
-            print("%s-%s (%s) %s" % (isd_as._isd, isd_as._as, link, addr))
+            logging.info("%s-%s (%s) %s" %
+                         (isd_as._isd, isd_as._as, link, addr))
 
         i += 1
 
 
 def print_segments_summary(csegs, dsegs, usegs):
-    print("----------------- SEGMENTS")
+    logging.info("----------------- SEGMENTS")
     print_enum_segments(csegs, "CORE")
     print_enum_segments(dsegs, "DOWN")
     print_enum_segments(usegs, "UP")
@@ -143,59 +162,59 @@ def print_enum_segments(segs, type):
     segidx = 1
     for seg in segs:
         p = seg.p
-        print("%s\t%s\thops: %s\t\tinterface id: %s" %
-              (type, segidx, len(p.asms), p.ifID))
+        logging.info("%s\t%s\thops: %s\t\tinterface id: %s" %
+                     (type, segidx, len(p.asms), p.ifID))
         segidx += 1
 
 
 def p_server_element(s, name):
     addr, port = get_public_addr(s)
-    print("----------------- %s SERVER:" % name)
-    print("Address: %s" % HostAddrIPv4(addr))
-    print("Name: %s" % s.name)
-    print("Port: %s" % port)
+    logging.info("----------------- %s SERVER:" % name)
+    logging.info("Address: %s" % HostAddrIPv4(addr))
+    logging.info("Name: %s" % s.name)
+    logging.info("Port: %s" % port)
 
 
 def p_router_element(s, name):
     addr, port = get_public_addr_array(s)
-    print("----------------- %s BORDER ROUTER:" % name)
-    print("Address: %s" % HostAddrIPv4(addr))
-    print("Name: %s" % s.name)
-    print("Port: %s" % port)
+    logging.info("----------------- %s BORDER ROUTER:" % name)
+    logging.info("Address: %s" % HostAddrIPv4(addr))
+    logging.info("Name: %s" % s.name)
+    logging.info("Port: %s" % port)
     interface = get_router_interface(s)
     p_interface_element(interface)
 
 
 def p_zookeeper(s, name):
-    print("----------------- %s:" % name)
-    print("Address: %s" % s)
+    logging.info("----------------- %s:" % name)
+    logging.info("Address: %s" % s)
 
 
 def p_interface_element(i):
     addr, port = get_public_addr(i)
     to_addr, to_port = get_remote_addr(i)
-    print("  ----------------- INTERFACE:")
-    print("  Address: %s" % HostAddrIPv4(addr))
-    print("  Bandwidth: %s" % i.bandwidth)
-    print("  Interface ID: %s" % i.if_id)
-    print("  ISD AS: %s" % i.isd_as)
-    print("  Link Type: %s" % i.link_type)
-    print("  MTU: %s" % i.mtu)
-    print("  Name: %s" % i.name)
-    print("  Port: %s" % port)
-    print("  To Address: %s" % HostAddrIPv4(to_addr))
-    print("  To Port: %s" % to_port)
+    logging.info("  ----------------- INTERFACE:")
+    logging.info("  Address: %s" % HostAddrIPv4(addr))
+    logging.info("  Bandwidth: %s" % i.bandwidth)
+    logging.info("  Interface ID: %s" % i.if_id)
+    logging.info("  ISD AS: %s" % i.isd_as)
+    logging.info("  Link Type: %s" % i.link_type)
+    logging.info("  MTU: %s" % i.mtu)
+    logging.info("  Name: %s" % i.name)
+    logging.info("  Port: %s" % port)
+    logging.info("  To Address: %s" % HostAddrIPv4(to_addr))
+    logging.info("  To Port: %s" % to_port)
 
 
 def p_segment(seg, idx, name):
-    print("----------------- %s SEGMENT %s" % (name, idx + 1))
-    print("Expiration Time: %s" % seg._min_exp)
+    logging.info("----------------- %s SEGMENT %s" % (name, idx + 1))
+    logging.info("Expiration Time: %s" % seg._min_exp)
     p = seg.p
     # InfoOpaqueField
-    print("%s" % InfoOpaqueField(p.info))
+    logging.info("%s" % InfoOpaqueField(p.info))
     # PathSegment
-    print("Interface ID: %s" % p.ifID)
-    print("SIBRA Ext Up: %s" % p.exts.sibra.up)
+    logging.info("Interface ID: %s" % p.ifID)
+    logging.info("SIBRA Ext Up: %s" % p.exts.sibra.up)
     asmsidx = 1
     for asms in p.asms:
         p_as_marking(asms, asmsidx)
@@ -204,14 +223,14 @@ def p_segment(seg, idx, name):
 
 def p_as_marking(asms, idx):
     # ASMarking
-    print("  ----------------- AS Marking Block %s" % idx)
-    print("  AS: %s" % ISD_AS(asms.isdas))
-    print("  TRC: v%s" % asms.trcVer)
-    print("  Cert: v%s" % asms.certVer)
-    print("  Interface ID Size: %s" % asms.ifIDSize)
-    print("  Hashtree Root: %s" % asms.hashTreeRoot.hex())
-    print("  Signature: %s" % asms.sig.hex())
-    print("  AS MTU: %s" % asms.mtu)
+    logging.info("  ----------------- AS Marking Block %s" % idx)
+    logging.info("  AS: %s" % ISD_AS(asms.isdas))
+    logging.info("  TRC: v%s" % asms.trcVer)
+    logging.info("  Cert: v%s" % asms.certVer)
+    logging.info("  Interface ID Size: %s" % asms.ifIDSize)
+    logging.info("  Hashtree Root: %s" % asms.hashTreeRoot.hex())
+    logging.info("  Signature: %s" % asms.sig.hex())
+    logging.info("  AS MTU: %s" % asms.mtu)
     pcbmsidx = 1
     for pcbms in asms.pcbms:
         p_pcb_marking(pcbms, pcbmsidx)
@@ -220,11 +239,11 @@ def p_as_marking(asms, idx):
 
 def p_pcb_marking(pcbms, idx):
     # PCBMarking
-    print("    ----------------- PCB Marking Block %s" % idx)
-    print("    In: %s (%s) mtu = %s" %
-          (ISD_AS(pcbms.inIA), pcbms.inIF, pcbms.inMTU))
-    print("    Out: %s (%s)" % (ISD_AS(pcbms.outIA), pcbms.outIF))
-    print("    %s" % HopOpaqueField(pcbms.hof))
+    logging.info("    ----------------- PCB Marking Block %s" % idx)
+    logging.info("    In: %s (%s) mtu = %s" %
+                 (ISD_AS(pcbms.inIA), pcbms.inIF, pcbms.inMTU))
+    logging.info("    Out: %s (%s)" % (ISD_AS(pcbms.outIA), pcbms.outIF))
+    logging.info("    %s" % HopOpaqueField(pcbms.hof))
 
 
 def organize_topo(t):

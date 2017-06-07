@@ -13,6 +13,8 @@
 # limitations under the License.
 
 import json
+import logging
+import os
 
 from endhost.sciond import SCIONDaemon
 from lib.defines import GEN_PATH
@@ -542,6 +544,8 @@ def get_remote_addr(elem):
 
 
 def index(request):
+    logger = logging.getLogger("asviz")
+
     json_paths = None
     json_pathtopo = None
     json_segtopo = None
@@ -563,7 +567,7 @@ def index(request):
         topo = organize_topo(t)
         paths, error = sd.get_paths(s_isd_as)
         if error != 0:
-            print("Error: %s" % error)
+            logger.error("Error: %s" % error)
         csegs = sd.core_segments()
         dsegs = sd.down_segments()
         usegs = sd.up_segments()
@@ -572,16 +576,16 @@ def index(request):
 
         json_pathtopo = json.dumps(
             get_json_path_segs(paths, csegs, usegs, dsegs))
-        print(json_pathtopo)
+        logger.debug(json_pathtopo)
 
         json_astopo = json.dumps(get_json_as_topology(t, topo))
-        print(json_astopo)
+        logger.debug(json_astopo)
 
         json_segtopo = json.dumps(get_json_all_segments(csegs, usegs, dsegs))
-        print(json_segtopo)
+        logger.debug(json_segtopo)
 
         json_paths = json.dumps(get_json_paths(paths))
-        print(json_paths)
+        logger.debug(json_paths)
 
     return render(request, 'asviz/index.html', {
         'json_paths': json_paths,
