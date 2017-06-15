@@ -28,6 +28,13 @@
  stroke-width: 1px;
 }
 
+.marker{
+    fill: none;
+    stroke: #666;
+    stroke-opacity: .5;
+    stroke-width: 1.5px;
+}
+
 .link {
  stroke-width: 4px;
 }
@@ -71,10 +78,7 @@
  stroke-dasharray: 0, 2 1;
 }
 
-.nodes.CORE {
- stroke-width: 2.5px;
-}
-
 .link.SELECTED {
  stroke: red;
 }
+

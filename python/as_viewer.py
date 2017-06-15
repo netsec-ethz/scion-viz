@@ -137,7 +137,7 @@ def print_paths(addr, sd, paths):
         logging.info("MTU: %s" % path.p.mtu)
         logging.info("Interfaces Len: %s" % len(path.p.interfaces))
         # enumerate path interfaces
-        for interface in path.p.interfaces:
+        for interface in reversed(path.p.interfaces):
             isd_as = ISD_AS(interface.isdas)
             link = interface.ifID
 

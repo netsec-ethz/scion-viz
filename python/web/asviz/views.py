@@ -78,7 +78,7 @@ def html_paths(sd, s, paths):
         list_add(s, "MTU: %s" % path.p.mtu)
         list_add(s, "Interfaces Len: %s" % len(path.p.interfaces))
         # enumerate path interfaces
-        for interface in path.p.interfaces:
+        for interface in reversed(path.p.interfaces):
             isd_as = ISD_AS(interface.isdas)
             link = interface.ifID
             try:
@@ -133,7 +133,7 @@ def get_json_paths(paths):
     cores = []
     for path in paths:
         core = []
-        for interface in path.p.interfaces:
+        for interface in reversed(path.p.interfaces):
             core.append({
                 "ISD": ISD_AS(interface.isdas)._isd,
                 "AS": ISD_AS(interface.isdas)._as,
@@ -304,7 +304,7 @@ def get_json_path_interfaces(path):
     data = []
     last_i = None
     # enumerate path interfaces
-    for interface in path.interfaces:
+    for interface in reversed(path.interfaces):
         if last_i:
             p = ISD_AS(interface.isdas)
             link_p = interface.ifID

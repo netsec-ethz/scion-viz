@@ -58,13 +58,13 @@ function topoSetup(msg, width, height) {
     }
 
     // attempt to fix source and destination labels at bottom of graph
-    if (msg.hasOwnProperty("destination") && !destination_added) {
-        addLabel("destination", (width * .7), (height * .8));
-        destination_added = true;
-    }
     if (msg.hasOwnProperty("source") && !source_added) {
-        addLabel("source", (width * .1), (height * .8));
+        addFixedLabel("source", (width * .4), (height * .85), false);
         source_added = true;
+    }
+    if (msg.hasOwnProperty("destination") && !destination_added) {
+        addFixedLabel("destination", (width * .6), (height * .85), true);
+        destination_added = true;
     }
 }
 
@@ -117,6 +117,9 @@ function updatePathProperties(prevPath, currPath, color) {
 // -------------------------------- Topology ----------------------------------
 
 var pageBounds;
+var circlesg;
+var linesg;
+
 function drawTopology(div_id, original_json_data, width, height) {
 
     if (original_json_data.length == 0) {
@@ -132,7 +135,8 @@ function drawTopology(div_id, original_json_data, width, height) {
 
     colorPath = d3.scale.category20();
     colaPath = cola.d3adaptor().linkDistance(link_dist).avoidOverlaps(true)
-            .handleDisconnected(true).size([ width, height ]);
+            .handleDisconnected(true).size([ width, height ]).alpha(0);
+
     svgPath = d3.select("#" + div_id).append("svg").attr("width", width).attr(
             "height", height);
 
@@ -142,9 +146,24 @@ function drawTopology(div_id, original_json_data, width, height) {
         width : width,
         height : height
     };
-    // var page = svgPath.append('rect').attr('id', 'page').attr(pageBounds);
 
-    drawTopo();
+    // Arrow marker
+    svgPath.append("defs").selectAll("marker").data(
+            [ colorPaths, colorSegCore, colorSegDown, colorSegUp ]).enter()
+            .append("marker").attr("id", function(d) {
+                return d;
+            }).attr("viewBox", "0 -5 10 10").attr("refX", r + 10).attr("refY",
+                    -5).attr("markerWidth", 6).attr("markerHeight", 6).attr(
+                    "orient", "auto").append("path")
+            .attr("d", "M0,-5L10,0L0,5").attr('fill', function(d, i) {
+                return d
+            });
+
+    linesg = svgPath.append("g");
+    pathsg = svgPath.append("g");
+    circlesg = svgPath.append("g");
+
+    update();
     drawLegend();
     topoColor({
         "source" : "none",
@@ -203,25 +222,49 @@ function calcConstraints(realGraphNodes) {
     return constraints;
 }
 
-function drawTopo() {
+function update() {
+    // colaPath.stop()
+    // maintainNodePositions()
 
     var realGraphNodes = graphPath.nodes.slice(0);
-    var constraints = calcConstraints(realGraphNodes);
-    colaPath.nodes(graphPath.nodes).links(graphPath.links).constraints(
-            constraints).start(30);
 
-    var link = svgPath.selectAll(".link").data(graphPath.links);
-    link.enter().append("line").attr(
+    var constraints = calcConstraints(realGraphNodes);
+    colaPath.constraints(constraints).links(graphPath.links).nodes(
+            graphPath.nodes)
+
+    var path = linesg.selectAll("path.link").data(graphPath.links)
+    path.enter().append("path").attr(
             "class",
             function(d) {
                 return d.type + " link " + "source-" + d.source.name
                         + " target-" + d.target.name;
             }).attr("stroke", default_link_color).attr("stroke-opacity",
             default_link_opacity);
-    link.exit().remove();
+    path.exit().remove();
 
-    var node = svgPath.selectAll(".node").data(realGraphNodes);
-    node.enter().append("rect").attr("width", function(d) {
+    var markerLinks = graphPath.links.filter(function(link) {
+        return link.path;
+    });
+    var markerPath = pathsg.selectAll("path.marker").data(markerLinks)
+    markerPath.enter().append("path").attr("class", function(d) {
+        return "marker " + d.type;
+    }).attr("marker-end", function(d) {
+        return "url(#" + d.color + ")";
+    }).style("stroke", function(d) {
+        return d.color;
+    });
+    markerPath.exit().remove();
+
+    var node = circlesg.selectAll(".node").data(realGraphNodes, function(d) {
+        return d.name;
+    })
+    var nodeg = node.enter().append("g").attr("class", function(d) {
+        return "node";
+    }).attr("id", function(d) {
+        return "node_" + d.name;
+    }).call(colaPath.drag).attr("transform", transform);
+
+    nodeg.append("rect").attr("width", function(d) {
         return (d.type == "host") ? w : (2 * r)
     }).attr("height", function(d) {
         return (d.type == "host") ? h : (2 * r)
@@ -229,78 +272,82 @@ function drawTopo() {
         return (d.type == "host") ? 4 : (2 * r)
     }).attr("ry", function(d) {
         return (d.type == "host") ? 4 : (2 * r)
-    }).attr("class", function(d) {
-        return d.name + " node " + d.type;
-    }).attr("fill", function(d) {
+    }).attr("x", function(d) {
+        return (d.type == "host") ? -w / 2 : -r
+    }).attr("y", function(d) {
+        return (d.type == "host") ? -h / 2 : -r
+    }).style("fill", function(d) {
         return (d.type == "host") ? "white" : colorPath(d.group);
     }).style("visibility", function(d) {
         return (d.type == "placeholder") ? "hidden" : "visible";
-    }).call(colaPath.drag);
+    })
 
-    var label = svgPath.selectAll(".label").data(realGraphNodes);
-    label.enter().append("text").attr("class", function(d) {
-        return d.type + " label";
-    }).text(function(d) {
-        return d.name;
+    .attr("stroke", default_link_color);
+
+    nodeg.append("text").attr("text-anchor", "middle").attr("y", ".35em").attr(
+            "class", function(d) {
+                return d.type + " label";
+            }).text(function(d) {
+        return d.name
     }).style("visibility", function(d) {
         return (d.type == "placeholder") ? "hidden" : "visible";
-    }).call(colaPath.drag);
-
-    colaPath.on("tick", function() {
-
-        link.attr("x1", function(d) {
-            return Math.max(r, Math.min(width - r, d.source.x));
-        }).attr("y1", function(d) {
-            return Math.max(r, Math.min(height - r, d.source.y));
-        }).attr("x2", function(d) {
-            return Math.max(r, Math.min(width - r, d.target.x));
-        }).attr("y2", function(d) {
-            return Math.max(r, Math.min(height - r, d.target.y));
-        });
-
-        node.attr("x", function(d) {
-            var bound = Math.max(r, Math.min(width - r, d.x));
-            return bound - ((d.type == "host") ? (w / 2) : r);
-        }).attr("y", function(d) {
-            var bound = Math.max(r, Math.min(height - r, d.y))
-            return bound - ((d.type == "host") ? (h / 2) : r);
-        });
-
-        node.attr("cx", function(d) {
-            return d.x = Math.max(r, Math.min(width - r, d.x));
-        }).attr("cy", function(d) {
-            return d.y = Math.max(r, Math.min(height - r, d.y));
-        });
-
-        label.attr("x", function(d) {
-            return d.x;
-        }).attr("y", function(d) {
-            var h = this.getBBox().height;
-            return d.y + (h / 4);
-        });
-
-        // page.attr(pageBounds = {
-        // x : topLeft.x,
-        // y : topLeft.y,
-        // width : bottomRight.x - topLeft.x,
-        // height : bottomRight.y - topLeft.y
-        // });
-
     });
+
+    node.exit().remove();
+
+    colaPath.on("tick", function(d) {
+
+        path.attr("d", linkStraight);
+        markerPath.attr("d", linkArc);
+        node.attr("transform", transform);
+    });
+
+    colaPath.start(10, 15, 20)
+}
+
+function linkStraight(d) {
+    var x1 = Math.max(r, Math.min(pageBounds.width - r, d.source.x));
+    var y1 = Math.max(r, Math.min(pageBounds.height - r, d.source.y));
+    var x2 = Math.max(r, Math.min(pageBounds.width - r, d.target.x));
+    var y2 = Math.max(r, Math.min(pageBounds.height - r, d.target.y));
+
+    var dr = 0;
+    return "M" + x1 + "," + y1 + "A" + dr + "," + dr + " 0 0,1 " + x2 + ","
+            + y2;
+}
+
+function linkArc(d) {
+    var x1 = Math.max(r, Math.min(pageBounds.width - r, d.source.x));
+    var y1 = Math.max(r, Math.min(pageBounds.height - r, d.source.y));
+    var x2 = Math.max(r, Math.min(pageBounds.width - r, d.target.x));
+    var y2 = Math.max(r, Math.min(pageBounds.height - r, d.target.y));
+
+    var dx = x2 - x1;
+    var dy = y2 - y1;
+    var dr = Math.sqrt(dx * dx + dy * dy);
+    return "M" + x1 + "," + y1 + "A" + dr + "," + dr + " 0 0,1 " + x2 + ","
+            + y2;
+}
+
+function transform(d) {
+    var dx = Math.max(r, Math.min(pageBounds.width - r, d.x));
+    var dy = Math.max(r, Math.min(pageBounds.height - r, d.y));
+    return "translate(" + dx + "," + dy + ")";
 }
 
 function drawLegend() {
     // Legend
+    var k = 20;
     var legend = svgPath.selectAll(".legend").data(colorPath.domain()).enter()
             .append("g").attr("class", "legend").attr("transform",
                     function(d, i) {
-                        return "translate(0," + i * 20 + ")";
+                        return "translate(0," + i * k + ")";
                     });
 
-    legend.append("rect").attr("x", 0).attr("width", 18).attr("height", 18)
+    legend.append("rect").attr("x", 0).attr("width", k).attr("height", k)
             .style("fill", colorPath);
 
-    legend.append("text").attr("x", 18 + 5).attr("y", 9).attr("dy", ".35em")
+    legend.append("text").attr("x", k + 5).attr("y", k / 2).attr("dy", ".35em")
             .style("text-anchor", "begin").text(function(d) {
                 if ((d % 2) === 0) {
                     return 'ISD-' + ((d / 4) + 1) + ' core';
@@ -310,10 +357,12 @@ function drawLegend() {
             });
 }
 
-function addLabel(label, x, y) {
+function addFixedLabel(label, x, y, lastLabel) {
     // remove last 2 constraint nodes from the end first
-    graphPath.nodes.pop();
-    graphPath.nodes.pop();
+    if (!lastLabel) {
+        graphPath.nodes.pop();
+        graphPath.nodes.pop();
+    }
 
     // update graph elements with additions
     graphPath["ids"][label] = Object.keys(graphPath["ids"]).length;
@@ -332,7 +381,9 @@ function addLabel(label, x, y) {
     });
 
     // redraw graph, recalculating constraints
-    drawTopo();
+    if (lastLabel) {
+        update();
+    }
 }
 
 function drawPath(res, path, color) {
@@ -354,16 +405,62 @@ function drawPath(res, path, color) {
             path_ids.push(ifRes.ISD + '-' + ifRes.AS);
         }
     }
+
     topoSetup({
         "path1" : path_ids
     });
     topoColor({
         "path1" : color
     });
+
+    graphPath.nodes.pop();
+    graphPath.nodes.pop();
+    // reset
+    graphPath.links = graphPath.links.filter(function(link) {
+        return !link.path;
+    });
+    for (var i = 0; i < path_ids.length - 1; i++) {
+        graphPath.links.push({
+            "color" : color,
+            "path" : true,
+            "source" : graphPath["ids"][path_ids[i]],
+            "target" : graphPath["ids"][path_ids[i + 1]],
+            "type" : "PARENT"
+        });
+    }
+    update();
 }
 
 function restorePath() {
+
     topoColor({
         "path1" : "none"
     });
+
+    graphPath.nodes.pop();
+    graphPath.nodes.pop();
+    // reset
+    graphPath.links = graphPath.links.filter(function(link) {
+        return !link.path;
+    });
+    update();
+
+}
+
+function maintainNodePositions() {
+    // var kv = {};
+    // _.each(oldNodes, function(d) {
+    // kv[d.key] = d;
+    // });
+    // _.each(nodes, function(d) {
+    // if (kv[d.key]) {
+    // // if the node already exists, maintain current position
+    // d.x = kv[d.key].x;
+    // d.y = kv[d.key].y;
+    // } else {
+    // // else assign it a random position near the center
+    // d.x = width / 2 + _.random(-150, 150);
+    // d.y = height / 2 + _.random(-25, 25);
+    // }
+    // });
 }

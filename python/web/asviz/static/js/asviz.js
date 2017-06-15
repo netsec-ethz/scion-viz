@@ -51,7 +51,6 @@ function setupPathSelection() {
         var num = parseInt($(this).attr("seg-num"));
         if (this.className == "open") {
             console.log(type + num + ' opened');
-            restorePath();
             if (type == 'CORE') {
                 drawPath(resCore, num, colorSegCore);
             } else if (type == 'DOWN') {

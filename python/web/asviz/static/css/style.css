@@ -92,19 +92,19 @@ a:hover {
  width: 290px;
  left: 500px;
  padding-left: 10px;
- font-size: 12px;
  border: 1px solid #ccc;
 }
 
 /* AS TOPOLOGY DATA LIST */
 
 #as-svrlist {
+ font-size: 12px;
  overflow: scroll;
  overflow-x: hidden;
 }
 
 #as-svrlist table {
- font-size: 10px;
+ font-size: 12px;
 }
 
 #as-svrlist table th#key {
@@ -133,9 +133,15 @@ a:hover {
 /* PATH TOPOLOGY DATA LIST */
 
 #as-iflist {
- font-size: 11px;
+ font-size: 12px;
  overflow: auto;
  overflow-x: hidden;
+}
+
+#as-iflist h2 {
+ font-size: 14px;
+ margin: 4px;
+ text-align: center
 }
 
 ul {
