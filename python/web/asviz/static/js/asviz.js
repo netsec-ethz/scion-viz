@@ -43,7 +43,7 @@ function setupPathSelection() {
     $('li[seg-type="DOWN"]').children().css("color", colorSegDown);
     $('li[seg-type="UP"]').children().css("color", colorSegUp);
     $('li[seg-type="PATH"]').children().css("color", colorPaths);
-    $('li[seg-type]').children().css("font-weight", "bold");
+    // $('li[seg-type]').children().css("font-weight", "bold");
 
     // add path graph selection and color
     $("li").click(function() {

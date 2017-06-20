@@ -78,7 +78,7 @@ def html_paths(sd, s, paths):
         list_add(s, "MTU: %s" % path.p.mtu)
         list_add(s, "Interfaces Len: %s" % len(path.p.interfaces))
         # enumerate path interfaces
-        for interface in reversed(path.p.interfaces):
+        for interface in path.p.interfaces:
             isd_as = ISD_AS(interface.isdas)
             link = interface.ifID
             try:
@@ -133,7 +133,7 @@ def get_json_paths(paths):
     cores = []
     for path in paths:
         core = []
-        for interface in reversed(path.p.interfaces):
+        for interface in path.p.interfaces:
             core.append({
                 "ISD": ISD_AS(interface.isdas)._isd,
                 "AS": ISD_AS(interface.isdas)._as,
@@ -304,7 +304,7 @@ def get_json_path_interfaces(path):
     data = []
     last_i = None
     # enumerate path interfaces
-    for interface in reversed(path.interfaces):
+    for interface in path.interfaces:
         if last_i:
             p = ISD_AS(interface.isdas)
             link_p = interface.ifID
@@ -560,12 +560,12 @@ def index(request):
 
         addr = haddr_parse("IPV4", "0.0.0.0")
         conf_dir = "%s/ISD%s/AS%s/endhost" % (GEN_PATH,
-                                              d_isd_as._isd, d_isd_as._as)
+                                              s_isd_as._isd, s_isd_as._as)
         sd = SCIONDaemon.start(conf_dir, addr)
 
         t = sd.topology
         topo = organize_topo(t)
-        paths, error = sd.get_paths(s_isd_as)
+        paths, error = sd.get_paths(d_isd_as)
         if error != 0:
             logger.error("Error: %s" % error)
         csegs = sd.core_segments()

@@ -144,6 +144,10 @@ a:hover {
  text-align: center
 }
 
+li.seg-type {
+ font-weight: bold;
+}
+
 ul {
  padding-left: 1.2em;
 }

@@ -79,16 +79,8 @@ def init():
 def print_as_viewer_info(myaddr, dst_isd_as):
     addr = haddr_parse("IPV4", "0.0.0.0")
     conf_dir = "%s/ISD%s/AS%s/endhost" % (GEN_PATH,
-                                          d_isd_as._isd, d_isd_as._as)
+                                          s_isd_as._isd, s_isd_as._as)
     sd = SCIONDaemon.start(conf_dir, addr)
-
-#     _api_addr = os.path.join(SCIOND_API_SOCKDIR, "sd%s.sock" %
-#                              dst_isd_as)
-#     _connector = lib_sciond.init(_api_addr)
-#     flags = lib_sciond.PathRequestFlags(flush=False)
-#     path_entries = lib_sciond.get_paths(
-#         s_isd_as, flags=flags, connector=_connector)
-#     logging.info(path_entries)
 
     # arguments
     if args.t:  # as topology
@@ -96,7 +88,7 @@ def print_as_viewer_info(myaddr, dst_isd_as):
         print_as_topology(t)
     if args.p or args.s or args.c or args.d or args.u:
         # get_paths req. all segments and paths, not topology
-        paths, error = sd.get_paths(s_isd_as)
+        paths, error = sd.get_paths(d_isd_as)
         if error != 0:
             logging.error("Error: %s" % error)
         csegs = sd.core_segments()
@@ -137,7 +129,7 @@ def print_paths(addr, sd, paths):
         logging.info("MTU: %s" % path.p.mtu)
         logging.info("Interfaces Len: %s" % len(path.p.interfaces))
         # enumerate path interfaces
-        for interface in reversed(path.p.interfaces):
+        for interface in path.p.interfaces:
             isd_as = ISD_AS(interface.isdas)
             link = interface.ifID
 
