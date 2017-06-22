@@ -24,6 +24,29 @@ document.addEventListener("DOMContentLoaded", function() {
             'value' : persistedSettings.regular
         });
     }
+
+    // set icons on load
+    chrome.proxy.settings.get({
+        'incognito' : false
+    }, function(config) {
+        console.log(JSON.stringify(config));
+        var c = config.value;
+        if (c.mode === 'fixed_servers' && c.rules && c.rules.singleProxy) {
+            // set icon to show proxy ON
+            chrome.browserAction.setIcon({
+                path : {
+                    '38' : "img/icon38-on.png"
+                }
+            });
+        } else {
+            // set icon to show proxy OFF
+            chrome.browserAction.setIcon({
+                path : {
+                    '38' : "img/icon38-off.png"
+                }
+            });
+        }
+    });
 });
 
 chrome.runtime.onMessageExternal.addListener(function(request, sender,

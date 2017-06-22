@@ -15,6 +15,11 @@ var SCION_HOST = '127.0.0.1';
 var SCION_PORT = 8080;
 var VIZ_APP_ID = "bogdaeienjhpdgpnmhenbgkjkglcbdok";
 
+// prevent google maps from eroding visualization performance when passing
+// through SCION proxy
+var SCION_BYPASS = ["maps.googleapis.com","mts*.googleapis.com","maps.gstatic.com",
+    "csi.gstatic.com","fonts.gstatic.com"];
+
 /**
  * Wraps the proxy configuration form, binding proper handlers to its various
  * `change`, `click`, etc. events in order to take appropriate action in
@@ -563,7 +568,16 @@ ProxyFormController.prototype = {
     }
     var proxyAddr = null;
     if (c.mode === 'fixed_servers' && c.rules && c.rules.singleProxy) {
-      proxyAddr = c.rules.singleProxy.host;
+        proxyAddr = c.rules.singleProxy.host;
+        // set icon to show proxy ON
+        chrome.browserAction.setIcon({
+            path : "img/icon38-on.png"
+        });
+    } else {
+        // set icon to show proxy OFF
+        chrome.browserAction.setIcon({
+            path : "img/icon38-off.png"
+        });
     }
     chrome.runtime.sendMessage(VIZ_APP_ID, {
         proxyAddress : proxyAddr
@@ -667,13 +681,11 @@ ProxyFormController.prototype = {
           // SCION case should construct its properties
           return {mode: 'fixed_servers',
                   rules: { singleProxy: { host: SCION_HOST, port: SCION_PORT }, 
-                  // prevent google maps from eroding visualization
-                  // performance when passing through SCION proxy
-                  bypassList: ["maps.googleapis.com","mts*.googleapis.com",
-                               "maps.gstatic.com","csi.gstatic.com","fonts.gstatic.com"] }
+                  bypassList: SCION_BYPASS }
           };
           return config;
       case ProxyFormController.ProxyTypes.FIXED:
+        this.bypassList = SCION_BYPASS;
         var config = {mode: 'fixed_servers'};
         if (this.singleProxy) {
           config.rules = {
