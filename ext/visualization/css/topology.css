@@ -28,6 +28,13 @@
  stroke-width: 1px;
 }
 
+.marker{
+    fill: none;
+    stroke: #666;
+    stroke-opacity: .5;
+    stroke-width: 1.5px;
+}
+
 .link {
  stroke-width: 4px;
 }
@@ -55,7 +62,7 @@
  text-transform: capitalize;
 }
 
-.ROUTING.label {
+.CORE.label {
  fill: white;
 }
 
@@ -63,7 +70,7 @@
  * --------------------------------- Additional Topology ---------------------------------
  */
 
-.link.ROUTING {
+.link.CORE {
  stroke-width: 5.5px;
 }
 
@@ -71,7 +78,7 @@
  stroke-dasharray: 0, 2 1;
 }
 
-.nodes.ROUTING {
+.nodes.CORE {
  stroke-width: 2.5px;
 }
 
