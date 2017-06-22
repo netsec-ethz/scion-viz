@@ -100,7 +100,7 @@ function sortTopologyGraph(graph) {
 }
 
 function addNodeFromLink(graph, name, type, node) {
-    var core = (type.toLowerCase() == "core") ? 1 : 1; // TODO mwfarb unhack
+    var core = (type.toLowerCase() == "core") ? 1 : 0; // TODO mwfarb unhack
     var group = ((ISD.exec(name) - 1) * 4) + core;
     graph["nodes"].push({
         name : name,

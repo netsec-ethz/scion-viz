@@ -120,7 +120,7 @@ function drawTopology(original_json_data, width, height) {
     color = d3.scale.category20();
 
     d3cola = cola.d3adaptor().linkDistance(link_dist).avoidOverlaps(false)
-            .handleDisconnected(true).size([ width, height ]);
+            .handleDisconnected(false).size([ width, height ]);
 
     svg = d3.select("#TopologyGraph").append("svg").attr("id", "topology")
             .attr("width", width).attr("height", height);
