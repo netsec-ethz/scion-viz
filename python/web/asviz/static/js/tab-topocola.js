@@ -58,13 +58,13 @@ function topoSetup(msg, width, height) {
     }
 
     // attempt to fix source and destination labels at bottom of graph
-    if (msg.hasOwnProperty("source") && !source_added) {
-        addFixedLabel("source", (width * .4), (height * .85), false);
-        source_added = true;
-    }
     if (msg.hasOwnProperty("destination") && !destination_added) {
-        addFixedLabel("destination", (width * .6), (height * .85), true);
+        addFixedLabel("destination", (width * .6), (height * .85), false);
         destination_added = true;
+    }
+    if (msg.hasOwnProperty("source") && !source_added) {
+        addFixedLabel("source", (width * .4), (height * .85), true);
+        source_added = true;
     }
 }
 

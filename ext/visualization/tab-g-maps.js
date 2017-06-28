@@ -14,7 +14,7 @@
  * the License.
  */
 
-var wv_map;
+var wv_map = null;
 
 /**
  * Asynchronously notifies the Google Maps webview that the Google Maps API is
@@ -23,9 +23,19 @@ var wv_map;
  * @param isds
  *            A numeric array of ISD numbers used to render the map legend.
  */
-function initMap(isds) {
+function initGMap(isds) {
     wv_map = document.getElementById('g-map');
     console.log('got webview:', wv_map);
+
+    wv_map.addEventListener("loadstart", function() {
+        console.debug("webview loading...");
+    });
+    wv_map.addEventListener("contentload", function() {
+        console.debug("webview content load done");
+    });
+    wv_map.addEventListener("loadstop", function() {
+        console.debug("webview loading stopped");
+    });
 
     if (wv_map) {
         wv_map.contentWindow.postMessage({
@@ -44,7 +54,7 @@ function initMap(isds) {
  * @param path
  *            When undefined, no currently selected path will be displayed.
  */
-function updateMapAsLinks(res, path) {
+function updateGMapAsLinks(res, path) {
     if (wv_map) {
         var all = getTopologyLinksAll();
         // update all paths
@@ -72,7 +82,7 @@ function updateMapAsLinks(res, path) {
  * properties of all AS markers and asynchronously passes it to the Google Maps
  * webview for updated rendering of symbolic markers.
  */
-function updateMapAsMarkers(src, dst) {
+function updateGMapAsMarkers(src, dst) {
     var loc = getMarkerLocations(src, dst);
 
     if (wv_map) {
@@ -89,7 +99,7 @@ function updateMapAsMarkers(src, dst) {
  * asynchronously passes it to the Google Maps webview for updated rendering of
  * fusion table polygons.
  */
-function updateMapIsdRegions(isds) {
+function updateGMapIsdRegions(isds) {
     var countries = [];
     var isdAs;
     for (isdAs in self.jLoc) {
