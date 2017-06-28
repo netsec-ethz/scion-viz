@@ -18,17 +18,31 @@
 """
 
 import argparse
+import json
 import logging
 import os
+import pprint
+import subprocess
+import time
 
 import lib.app.sciond as lib_sciond
-from endhost.sciond import SCIOND_API_SOCKDIR
-from endhost.sciond import SCIONDaemon
-from lib.defines import GEN_PATH
+from lib.app.sciond import SCIONDConnectionError, SCIONDResponseError
+from lib.config import Config
+from lib.crypto.certificate_chain import get_cert_chain_file_path
+from lib.crypto.trc import get_trc_file_path
+from lib.defines import (
+    AS_CONF_FILE,
+    GEN_PATH,
+    PATH_POLICY_FILE,
+    SCIOND_API_SOCKDIR,
+    TOPO_FILE,
+)
 from lib.packet.host_addr import HostAddrIPv4, haddr_parse
 from lib.packet.opaque_field import HopOpaqueField, InfoOpaqueField
 from lib.packet.scion_addr import ISD_AS, SCIONAddr
-
+from lib.path_store import PathPolicy
+from lib.topology import Topology
+from lib.types import ServiceType
 
 # topology class definitions
 topo_servers = ['BEACON', 'CERTIFICATE', 'PATH', 'SIBRA']
@@ -55,17 +69,18 @@ def init():
     parser.add_argument('dst_isdas', type=str,
                         help='ISD-AS destination.')  # optional
     parser.add_argument('-t', action="store_true", default=False,
-                        help='display destination AS topology')
+                        help='display source AS topology')
     parser.add_argument('-p', action="store_true",
-                        default=False, help='display announced paths')
-    parser.add_argument('-s', action="store_true", default=False,
-                        help='display available segments overview')
-    parser.add_argument(
-        '-u', type=int, help='display # up segment detail (1-based)')
-    parser.add_argument(
-        '-d', type=int, help='display # down segment detail (1-based)')
-    parser.add_argument(
-        '-c', type=int, help='display # core segment detail (1-based)')
+                        default=False, help='display announced paths to destination')
+    parser.add_argument('-trc', action="store_true",
+                        default=False, help='display source TRC')
+    parser.add_argument('-crt', action="store_true",
+                        default=False, help='display source certificate chain')
+    parser.add_argument('-c', action="store_true",
+                        default=False, help='display source AS configuration')
+    parser.add_argument('-pp', action="store_true",
+                        default=False, help='display source path policy')
+
     args = parser.parse_args()
     s_isd_as = ISD_AS(args.src_isdas)
     d_isd_as = ISD_AS(args.dst_isdas)
@@ -77,41 +92,81 @@ def init():
 
 
 def print_as_viewer_info(myaddr, dst_isd_as):
+    # init connection to sciond
     addr = haddr_parse("IPV4", "0.0.0.0")
     conf_dir = "%s/ISD%s/AS%s/endhost" % (GEN_PATH,
-                                          d_isd_as._isd, d_isd_as._as)
-    sd = SCIONDaemon.start(conf_dir, addr)
+                                          s_isd_as._isd, s_isd_as._as)
+    sock_file = os.path.join(SCIOND_API_SOCKDIR, "%s.sock" % s_isd_as)
+    connector = lib_sciond.init(sock_file)
 
-#     _api_addr = os.path.join(SCIOND_API_SOCKDIR, "sd%s.sock" %
-#                              dst_isd_as)
-#     _connector = lib_sciond.init(_api_addr)
-#     flags = lib_sciond.PathRequestFlags(flush=False)
-#     path_entries = lib_sciond.get_paths(
-#         s_isd_as, flags=flags, connector=_connector)
-#     logging.info(path_entries)
+    # test if sciond is already running for this AS
+    try:
+        paths = lib_sciond.get_paths(d_isd_as)
+    except (SCIONDResponseError) as err:
+        logging.error("%s: %s" % (err.__class__.__name__, err))
+        return
+    except (SCIONDConnectionError, FileNotFoundError) as err:
+        logging.warning("%s: %s" % (err.__class__.__name__, err))
 
-    # arguments
-    if args.t:  # as topology
-        t = sd.topology
-        print_as_topology(t)
-    if args.p or args.s or args.c or args.d or args.u:
-        # get_paths req. all segments and paths, not topology
-        paths, error = sd.get_paths(s_isd_as)
-        if error != 0:
-            logging.error("Error: %s" % error)
-        csegs = sd.core_segments()
-        dsegs = sd.down_segments()
-        usegs = sd.up_segments()
-    if args.p:
-        print_paths(addr, sd, paths)
-    if args.s:  # display segments summary
-        print_segments_summary(csegs, dsegs, usegs)
-    if args.c:  # display N core segment
-        p_segment(csegs[args.c - 1], args.c, "CORE")
-    if args.d:  # display N down segment
-        p_segment(dsegs[args.d - 1], args.d, "DOWN")
-    if args.u:  # display N up segment
-        p_segment(usegs[args.u - 1], args.u, "UP")
+        # need to launch sciond, wait for uptime
+        print("Starting sciond at %s" % sock_file)
+        cmd = './scion.sh sciond %s' % s_isd_as
+        p = subprocess.Popen(['xterm', '-e', cmd])
+        while not os.path.exists(sock_file):
+            time.sleep(1)
+
+    try:
+        # arguments
+        if args.t:  # as topology
+            t = Topology.from_file(os.path.join(conf_dir, TOPO_FILE))
+            print_as_topology(t)
+
+            # kills sciond: lib_sciond.get_service_info([ServiceType.BR,
+            # ServiceType.SIBRA])
+            srvs = [ServiceType.BS, ServiceType.PS, ServiceType.CS]
+            v = lib_sciond.get_service_info(srvs)
+            for key in v:
+                logging.info(v[key].__dict__)
+
+            t = lib_sciond.get_as_info()
+            for value in t:
+                logging.info(value.__dict__)
+
+            i = lib_sciond.get_if_info()
+            for key, value in i.items():
+                logging.info(value.__dict__)
+
+        if args.p:  # announced paths
+            paths = lib_sciond.get_paths(d_isd_as)
+            print_paths(addr, paths)
+
+    except (SCIONDResponseError) as err:
+        logging.error("%s: %s" % (err.__class__.__name__, err))
+        return
+
+    if args.c:  # config
+        c = Config.from_file(os.path.join(conf_dir, AS_CONF_FILE))
+        logging.info(c.__dict__)
+
+    if args.pp:  # path policy
+        pp = PathPolicy.from_file(os.path.join(conf_dir, PATH_POLICY_FILE))
+        logging.info(pp.__dict__)
+
+    if args.trc:  # TRC
+        trc_ver = 0
+        trc_path = get_trc_file_path(conf_dir, s_isd_as._isd, trc_ver)
+        print (trc_path)
+        with open(trc_path, 'r') as fin:
+            parsed = json.load(fin)
+        logging.info(json.dumps(parsed, indent=4))
+
+    if args.crt:  # cert chain
+        crt_ver = 0
+        crt_path = get_cert_chain_file_path(conf_dir, s_isd_as, crt_ver)
+        print (crt_path)
+        with open(crt_path, 'r') as fin:
+            parsed = json.load(fin)
+        logging.info(json.dumps(parsed, indent=4))
 
 
 def print_as_topology(t):
@@ -129,22 +184,22 @@ def print_as_topology(t):
                 p_zookeeper(s, servers)
 
 
-def print_paths(addr, sd, paths):
+def print_paths(addr, paths):
     i = 1
     # enumerate all paths
     for path in paths:
         logging.info("----------------- PATH %s" % i)
-        logging.info("MTU: %s" % path.p.mtu)
-        logging.info("Interfaces Len: %s" % len(path.p.interfaces))
+        logging.info("MTU: %s" % path.p.path.mtu)
+        logging.info("Interfaces Len: %s" % len(path.p.path.interfaces))
         # enumerate path interfaces
-        for interface in reversed(path.p.interfaces):
+        for interface in reversed(path.p.path.interfaces):
             isd_as = ISD_AS(interface.isdas)
             link = interface.ifID
 
-            try:
-                addr, port = get_public_addr_array(sd.ifid2br[link])
-            except (KeyError):
-                addr = ''
+            # try:
+            #addr, port = get_public_addr_array(sd.ifid2br[link])
+            # except (KeyError):
+            addr = ''
             logging.info("%s-%s (%s) %s" %
                          (isd_as._isd, isd_as._as, link, addr))
 
