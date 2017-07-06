@@ -223,9 +223,6 @@ function calcConstraints(realGraphNodes) {
 }
 
 function update() {
-    // colaPath.stop()
-    // maintainNodePositions()
-
     var realGraphNodes = graphPath.nodes.slice(0);
 
     var constraints = calcConstraints(realGraphNodes);
@@ -247,6 +244,7 @@ function update() {
     });
     var markerPath = pathsg.selectAll("path.marker").data(markerLinks)
     markerPath.enter().append("path").attr("class", function(d) {
+        console.log( "marker " + d.type);
         return "marker " + d.type;
     }).attr("marker-end", function(d) {
         return "url(#" + d.color + ")";
@@ -280,9 +278,7 @@ function update() {
         return (d.type == "host") ? "white" : colorPath(d.group);
     }).style("visibility", function(d) {
         return (d.type == "placeholder") ? "hidden" : "visible";
-    })
-
-    .attr("stroke", default_link_color);
+    }).attr("stroke", default_link_color);
 
     nodeg.append("text").attr("text-anchor", "middle").attr("y", ".35em").attr(
             "class", function(d) {
@@ -335,22 +331,30 @@ function transform(d) {
     return "translate(" + dx + "," + dy + ")";
 }
 
-function drawLegend() {
+function drawLegend(core) {
     // Legend
     var k = 20;
     var legend = svgPath.selectAll(".legend").data(colorPath.domain()).enter()
-            .append("g").attr("class", "legend").attr("transform",
+            .append("g").attr("class", "legend").attr(
+                    "transform",
                     function(d, i) {
-                        return "translate(0," + i * k + ")";
+                        return "translate(0," + (core ? i : (i - 1) / 2) * k
+                                + ")";
                     });
 
     legend.append("rect").attr("x", 0).attr("width", k).attr("height", k)
-            .style("fill", colorPath);
+            .style("fill", colorPath).style("visibility", function(d) {
+                if ((d % 2) === 0) {
+                    return core ? "visible" : "hidden";
+                } else {
+                    return "visible";
+                }
+            })
 
     legend.append("text").attr("x", k + 5).attr("y", k / 2).attr("dy", ".35em")
             .style("text-anchor", "begin").text(function(d) {
                 if ((d % 2) === 0) {
-                    return 'ISD-' + ((d / 4) + 1) + ' core';
+                    return core ? 'ISD-' + ((d / 4) + 1) + ' core' : null;
                 } else {
                     return 'ISD-' + (((d - 1) / 4) + 1);
                 }
@@ -374,11 +378,13 @@ function addFixedLabel(label, x, y, lastLabel) {
         y : y,
         fixed : true,
     });
-    graphPath.links.push({
-        source : graphPath["ids"][setup[label]],
-        target : graphPath["ids"][label],
-        type : "host",
-    });
+    if (graphPath["ids"][setup[label]]) {
+        graphPath.links.push({
+            source : graphPath["ids"][setup[label]],
+            target : graphPath["ids"][label],
+            type : "host",
+        });
+    }
 
     // redraw graph, recalculating constraints
     if (lastLabel) {
@@ -445,22 +451,4 @@ function restorePath() {
     });
     update();
 
-}
-
-function maintainNodePositions() {
-    // var kv = {};
-    // _.each(oldNodes, function(d) {
-    // kv[d.key] = d;
-    // });
-    // _.each(nodes, function(d) {
-    // if (kv[d.key]) {
-    // // if the node already exists, maintain current position
-    // d.x = kv[d.key].x;
-    // d.y = kv[d.key].y;
-    // } else {
-    // // else assign it a random position near the center
-    // d.x = width / 2 + _.random(-150, 150);
-    // d.y = height / 2 + _.random(-25, 25);
-    // }
-    // });
 }

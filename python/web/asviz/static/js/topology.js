@@ -24,7 +24,7 @@ var ISD = new RegExp("^[0-9]*");
 var AS = new RegExp("[0-9]*$");
 
 /**
- * retrieve given ID because the link will consist of source-target. or
+ * Retrieve given ID because the link will consist of source-target. or
  * target-source,
  */
 function getPathId(source, target) {

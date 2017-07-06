@@ -22,6 +22,14 @@ var colorSegCore = "red";
 var colorSegUp = "green";
 var colorSegDown = "blue";
 
+function activateTab(tab){
+    $('.tab-pane a[href="#' + tab + '"]').tab('show');
+};
+
+function getTab(){
+    return $("ul#sampleTabs li.active")
+}
+
 window.onload = function() {
     // PANEL: Path Topology Graph
     // primary loading currently on index.html

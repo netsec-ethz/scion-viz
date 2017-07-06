@@ -39,4 +39,5 @@ nosetests.xml
 .settings
 
 db.sqlite3
+*.log
 

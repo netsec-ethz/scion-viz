@@ -2,24 +2,23 @@
 
 These are temporary instructions until the appropriate place is located on an updated deployment server. Some or all of these tools may end up migrating to another repository if need be.
 
-**NOTE:** The SCION daemon will return multiple paths as of the master branch commit: github.com/netsec-ethz/scion/commit/bec7de2b5e0d864b5b3dc5638eba41db4014fbd1. After that commit, most runs will only return one path.
+1. Clone [scion](https://github.com/netsec-ethz/scion) and submodules to an appropriate local dir like `$GOPATH/src/github.com/netsec-ethz/scion`.
+1. Execute the install update script:
 
-1. Clone [scion](https://github.com/netsec-ethz/scion) and submodules to an appropriate local dir.
-1. Complete [scion-web](https://github.com/netsec-ethz/scion-web) setup instructions for scion/sub/web.
-1. `cd scion/sub`
-1. `git clone https://github.com/mwfarb/scion-viz.git`
-1. `cd scion-viz`
-1. `git pull origin as_viewer`
-1. `cd ../..`
+    ```
+    ./oneclick_install.sh
+    ```
+
+This will add a new directory `sub/scion-viz` under the scion root directory and clone/update the scion-viz repo and launch the Django web service for the AS Visualization at 0.0.0.0:8080. Feel free to modify the script's scion root directory and/or IP address and port as desired.
 
 To run command-line (paths example, use -h for help):
 
     ```
-    python3 sub/scion-viz/python/as_viewer.py 1-14 2-23 -p
+    python3 python/as_viewer.py 1-14 2-23 -p
     ```
 
-To run Django web UI:
+To run Django web UI at default localhost 127.0.0.1:8000 use:
 
     ```
-    python3 sub/scion-viz/python/web/manage.py runserver
+    python3 python/web/manage.py runserver
     ```

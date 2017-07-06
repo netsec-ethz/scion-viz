@@ -22,23 +22,28 @@
 <title>SCION AS Visualization</title>
 <!-- Stylesheets -->
 {% block css %}
-  <link rel="stylesheet" href="{% static "css/style.css" %}" type="" media="screen" />
-  <link rel="stylesheet" href="{% static "css/topology.css" %}" />
+<link rel="stylesheet" href="{% static "css/bootstrap.min.css" %}"></link>
+<link rel="stylesheet" href="{% static "css/style.css" %}"></link>
+<link rel="stylesheet" href="{% static "css/topology.css" %}"></link>
 {% endblock css %}
 <!-- Scripts -->
 {% block js %}
-  <script src="{% static "js/jquery-2.2.0.min.js" %}"></script>
-  <script src="{% static "js/cola.v3.min.js" %}"></script>
-  <script src="{% static "js/d3.v3.min.js" %}"></script>
-  <script src="{% static "js/topojson.min.js" %}"></script>
-  <script src="{% static "js/topology.js" %}" ></script>
-  <script src="{% static "js/tab-topocola.js" %}" ></script>
-  <script src="{% static "js/asviz.js" %}" ></script>
+<script src="{% static "js/jquery-2.2.0.min.js" %}"></script>
+<script src="{% static "js/bootstrap.min.js" %}"></script>
+<script src="{% static "js/cola.v3.min.js" %}"></script>
+<script src="{% static "js/d3.v3.min.js" %}"></script>
+<script src="{% static "js/topojson.min.js" %}"></script>
+<script src="{% static "js/topology.js" %}" ></script>
+<script src="{% static "js/tab-topocola.js" %}" ></script>
+<script src="{% static "js/asviz.js" %}" ></script>
 {% endblock %}
 </head>
+
 <body>
  <div id='chart'>
+
   <div id='title'>SCION AS Visualization</div>
+
   <div id="info">
    <ul>
     <li><a href='http://scion-architecture.net'>SCION Website</a></li>
@@ -48,73 +53,159 @@
       Visualizations</a> on Github</li>
    </ul>
   </div>
+
   <div id="as-viz">
+
    <div id="as-menu">
     <div id='as-select'>
      <form method="GET">
-      Source AS: <input type="text" name="src" value="{{ src }}"
-       style="width: 50px;"> Destination AS: <input type="text"
-       name="dst" value="{{ dst }}" style="width: 50px;"> <input type="submit"
-       value="Submit" />
+      Source AS: <input type="text" name="src" required
+       placeholder="1-1" pattern="^[0-9]*-[0-9]*$" value="{{ src }}"
+       style="width: 60px;"> Destination AS: <input type="text"
+       id="dst" name="dst" placeholder="2-1" pattern="^[0-9]*-[0-9]*$"
+       value="{{ dst }}" style="width: 60px;"> Data: <select
+       id="data" name="data"
+       onchange="$('#tab').val(activeTab); this.form.submit();">
+       <option value="sdapi">sciond socket</option>
+       <option value="file">local gen dir</option>
+      </select> <input type="hidden" name="tab" id="tab"> <input
+       type="submit" value="Submit" onclick="$('#tab').val(activeTab);" />
+      <input type="submit" value="Clear" />
+      <div id="addr">
+       SCIOND IP Address: <input type="text" name="addr"
+        placeholder="127.0.0.1"
+        pattern="((^|\.)((25[0-5])|(2[0-4]\d)|(1\d\d)|([1-9]?\d))){4}$"
+        value="{{ addr }}" style="width: 100px;">
+      </div>
+
      </form>
     </div>
     <div id='as-clear'>
-     <form action="{% url 'asviz:index' %}">
-      <input type="submit" value="Clear" />
-     </form>
+     <form action="{% url 'asviz:index' %}"></form>
     </div>
    </div>
+
+   <div id='as-error'></div>
+
    <div id='as-graphs'>
-    <div id="as-pathtopo" style="text-align: center;"></div>
-    <div id="as-astopo"></div>
-    <div id="as-iflist">
-     <h2>Selected Path Interfaces</h2>
-     {% if path_info %}
-     <p>{{ path_info | safe }}</p>
-     {% endif %}
-    </div>
-    <div id="as-svrlist">
-     <h2>AS {{ src }} Topology Servers</h2>
-     <p id="as-selection"></p>
-     <table id='server_table'>
-      <thead>
-       <tr>
-        <th id='key'></th>
-        <th id='value'></th>
-       </tr>
-      </thead>
-      <tbody>
-      </tbody>
-     </table>
+
+    <ul class="nav nav-tabs">
+     <li><a data-toggle="tab" href="#as-tab-pathtopo"
+      id="tab-pathtopo">Paths</a></li>
+     <li><a data-toggle="tab" href="#as-tab-astopo" id="tab-astopo">AS
+       Topology</a></li>
+     <li><a data-toggle="tab" href="#as-tab-trc" id="tab-trc">ISD
+       TRC</a></li>
+     <li><a data-toggle="tab" href="#as-tab-crt" id="tab-crt">AS
+       Certificate</a></li>
+    </ul>
+
+    <div class="tab-content">
+     <div id="as-tab-astopo" class="tab-pane fade in">
+      <div id="as-astopo"></div>
+      <div id="as-svrlist">
+       <h2>AS {{ src }} Topology Servers</h2>
+       <p id="as-selection"></p>
+       <table id='server_table'>
+        <thead>
+         <tr>
+          <th id='key'></th>
+          <th id='value'></th>
+         </tr>
+        </thead>
+        <tbody>
+        </tbody>
+       </table>
+      </div>
+     </div>
+     <div id="as-tab-pathtopo" class="tab-pane fade in">
+      <div id="as-pathtopo"></div>
+      <div id="as-iflist">
+       <h2>Selected Path Interfaces</h2>
+       {% if path_info %}
+       <p>{{ path_info | safe }}</p>
+       {% endif %}
+      </div>
+     </div>
+     <div id="as-tab-trc" class="tab-pane fade in">
+      <div id="as-trc">
+       <div id="as-trclist">
+        <h2>ISD ({{ src }}) Trust Root Configuration</h2>
+        {% if json_trc %}
+        <p>{{ json_trc | safe }}</p>
+        {% endif %}
+       </div>
+      </div>
+     </div>
+     <div id="as-tab-crt" class="tab-pane fade in">
+      <div id="as-crt">
+       <div id="as-crtlist">
+        <h2>AS ({{ src }}) Certificate</h2>
+        {% if json_crt %}
+        <p>{{ json_crt | safe }}</p>
+        {% endif %}
+       </div>
+      </div>
+     </div>
     </div>
    </div>
+
   </div>
  </div>
-
 </body>
 
 
-<script>
-    var resSegs = {{ json_segtopo | safe }};
-    var resCore = resSegs.core_segments;
-    var resUp = resSegs.up_segments;
-    var resDown = resSegs.down_segments;
-    var resPath = {{ json_paths | safe }};
-    var jTopo = {{ json_pathtopo | safe }};
-    var json_astopo = {{ json_astopo | safe }};
+<script type="text/javascript">
+    var resSegs, resCore, resUp, resDown, resPath, jTopo, json_astopo;
+    loadData('{{ err }}');
 
-    // load path topology
-    var width = $("#as-pathtopo").width();
-    var height = $("#as-pathtopo").height();
-    drawTopology("as-pathtopo", jTopo, width, height);
-    // add endpoint labels
-    topoSetup({
-        "source" : '{{ src }}',
-        "destination" : '{{ dst }}',
-    }, width, height);
+    var activeTab = null;
 
-    // add AS topology layout
-    var width = $("#as-astopo").width();
-    var height = $("#as-astopo").height();
-    drawAsTopo("as-astopo", json_astopo, width, height);
+    $(document).ready(function() {
+        // set data selection
+        $("#data").val('{{ data }}');
+
+        // set active tab
+        $('.nav-tabs #{{ tab }}').tab('show');
+
+        // monitor active tab selection
+        activeTab = $('.nav-tabs .active > a').attr('id');
+        console.log('selected tab: ' + activeTab);
+        $('a[data-toggle="tab"]').on('shown.bs.tab', function(e) {
+            activeTab = $(e.target).attr('id');
+            $("#tab").val(activeTab);
+            console.log('selected tab: ' + activeTab);
+        });
+    });
+
+    function loadData(err) {
+        if (err && err != '') {
+            document.getElementById("as-error").innerHTML = err;
+            document.getElementById("as-error").style.color = 'red';
+        }
+        resSegs = JSON.parse('{{ json_segtopo | safe }}');
+        resCore = resSegs.core_segments;
+        resUp = resSegs.up_segments;
+        resDown = resSegs.down_segments;
+        resPath = JSON.parse('{{ json_paths | safe }}');
+        jTopo = JSON.parse('{{ json_pathtopo | safe }}');
+        json_astopo = JSON.parse('{{ json_astopo | safe }}');
+
+        // load path topology
+        var width = $("#as-pathtopo").width();
+        var height = $("#as-pathtopo").height();
+        drawTopology("as-pathtopo", jTopo, width, height);
+        // add endpoint labels
+        topoSetup({
+            "source" : '{{ src }}',
+            "destination" : '{{ dst }}',
+        }, width, height);
+
+        // add AS topology layout
+        var width = $("#as-astopo").width();
+        var height = $("#as-astopo").height();
+        drawAsTopo("as-astopo", json_astopo, width, height);
+    }
 </script>
+<noscript>This form requires that you have javascript enabled
+ to work properly please enable javascript in your browser.</noscript>

@@ -43,7 +43,8 @@ a:hover {
 }
 
 #as-menu {
- font-size: 14px
+ font-size: 14px;
+ padding: 5px;
 }
 
 #as-menu div {
@@ -60,39 +61,68 @@ a:hover {
  position: relative;
 }
 
+#as-tabs-header {
+
+}
+
 #as-pathtopo, #as-iflist, #as-astopo, #as-svrlist {
  position: absolute;
 }
 
 #as-pathtopo {
- top: 10px;
  width: 500px;
  height: 350px;
  border: 1px solid #ccc;
 }
 
 #as-astopo {
- top: 360px;
  height: 350px;
  width: 500px;
  border: 1px solid #ccc;
 }
 
 #as-iflist {
- top: 10px;
  left: 500px;
  height: 350px;
  width: 300px;
+ padding-left: 10px;
  border: 1px solid #ccc;
 }
 
 #as-svrlist {
- top: 360px;
  height: 350px;
  width: 290px;
  left: 500px;
  padding-left: 10px;
  border: 1px solid #ccc;
+}
+
+#as-trclist {
+ height: 350px;
+ width: 800px;
+ padding-left: 10px;
+ border: 1px solid #ccc;
+ overflow: scroll;
+ overflow-x: hidden;
+}
+
+#as-crtlist {
+ height: 350px;
+ width: 800px;
+ padding-left: 10px;
+ border: 1px solid #ccc;
+ overflow: scroll;
+ overflow-x: hidden;
+}
+
+#as-trclist h2 {
+ font-size: 18px;
+ margin: 4px;
+}
+
+#as-crtlist h2 {
+ font-size: 18px;
+ margin: 4px;
 }
 
 /* AS TOPOLOGY DATA LIST */
@@ -215,3 +245,32 @@ ul.tree li.open > a:not(:last-child):before {
  /* invisible internal AS links */
 
 }
+
+/**
+ * ------------------------------- Tabs --------------------------------
+ */
+#tabs {
+ font-size: 14px;
+}
+
+.tabs li {
+ list-style: none;
+ display: inline;
+}
+
+.tabs a {
+ padding: 5px 10px;
+ display: inline-block;
+ background: #666;
+ color: #fff;
+ text-decoration: none;
+ border: 1px solid #66CCFF;
+}
+
+.tabs a.active {
+ background: #fff;
+ color: #000;
+ font-weight: bold;
+}
+
+

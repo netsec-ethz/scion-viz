@@ -24,16 +24,15 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/1.8/ref/settings/
 """
 
+from os.path import dirname as dir
 import os
 import sys
 
+
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
-from os.path import dirname as dir
-
-
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-WEB_SCION_DIR = dir(dir(os.path.abspath(__file__)))
-SCION_ROOT = dir(WEB_SCION_DIR)
+SCION_ROOT = dir(dir(dir(dir(BASE_DIR))))
+
 sys.path.insert(0, SCION_ROOT)
 
 # for users who don't dynamically add content root to their PATHONPATH
@@ -141,7 +140,7 @@ LOGGING = {
         },
         'file': {
             'class': 'logging.FileHandler',
-            'filename': 'logs/asviz.log',
+            'filename': os.path.join(BASE_DIR, 'asviz.log'),
         },
     },
     'loggers': {
