@@ -22,11 +22,26 @@ var colorSegCore = "red";
 var colorSegUp = "green";
 var colorSegDown = "blue";
 
-function activateTab(tab){
+// AS Topology Graph
+var sv_link_dist = 75; // link distance
+var ft_h = 14; // font height
+var sv_tx_dy = 25; // server node label y-offset
+var as_r = 130; // AS node radius
+var sv_r = 11; // server node radius
+var as_st = 6; // AS node stroke
+var sv_st = 2; // server node stroke
+
+/*
+ * Focuses the active tab to the tab label.
+ */
+function activateTab(tab) {
     $('.tab-pane a[href="#' + tab + '"]').tab('show');
 };
 
-function getTab(){
+/*
+ * Returns the tab label of the active tab
+ */
+function getTab() {
     return $("ul#sampleTabs li.active")
 }
 
@@ -45,13 +60,15 @@ window.onload = function() {
     document.getElementById("as-selection").innerHTML = "Click on a server";
 }
 
+/*
+ * Creates on-click handler that will draw/hide selected path arcs.
+ */
 function setupPathSelection() {
     // add style to list of paths and segments
     $('li[seg-type="CORE"]').children().css("color", colorSegCore);
     $('li[seg-type="DOWN"]').children().css("color", colorSegDown);
     $('li[seg-type="UP"]').children().css("color", colorSegUp);
     $('li[seg-type="PATH"]').children().css("color", colorPaths);
-    // $('li[seg-type]').children().css("font-weight", "bold");
 
     // add path graph selection and color
     $("li").click(function() {
@@ -75,9 +92,11 @@ function setupPathSelection() {
     });
 }
 
+/*
+ * Handle open and close of data tree suggested by J. Slegers at
+ * stackoverflow.com/a/36297526
+ */
 function setupListTree() {
-    // Handle open and close of data tree suggested
-    // by J. Slegers at stackoverflow.com/a/36297526
     var tree = document.querySelectorAll('ul.tree a:not(:last-child)');
     for (var i = 0; i < tree.length; i++) {
         tree[i].addEventListener('click', function(e) {
@@ -96,6 +115,9 @@ function setupListTree() {
     }
 }
 
+/*
+ * Translates incoming AS topology data to D3-compatible json.
+ */
 function parseTopo(topo) {
     var data = {};
     data.links = topo.links.map(function(value) {
@@ -116,9 +138,12 @@ function parseTopo(topo) {
     return data;
 };
 
-function drawAsTopo(div_id, json_astopo, width, height) {
+/*
+ * Initializes AS topology graph, its handlers, and renders it.
+ */
+function drawAsTopo(div_id, json_as_topo, width, height) {
 
-    var graphAs = parseTopo(json_astopo);
+    var graphAs = parseTopo(json_as_topo);
     console.log(JSON.stringify(graphAs));
 
     var svgAs = d3.select("#" + div_id).append("svg").attr("height", height)
@@ -128,18 +153,15 @@ function drawAsTopo(div_id, json_astopo, width, height) {
     var nodes = graphAs.nodes;
     var links = graphAs.links;
 
-    var link_dist = 75;
-    var r = 11;
-
     var texts = svgAs.selectAll("text").data(nodes).enter().append("text")
-            .attr("dy", 10 + 15).attr("text-anchor", "middle").attr("fill",
+            .attr("dy", sv_tx_dy).attr("text-anchor", "middle").attr("fill",
                     "black").attr("font-family", "sans-serif").attr(
-                    "font-size", "14px").text(function(d) {
+                    "font-size", ft_h + "px").text(function(d) {
                 return d.name;
             });
 
     var colaAs = cola.d3adaptor().size([ width, height ]).linkDistance(
-            link_dist).avoidOverlaps(true);
+            sv_link_dist).avoidOverlaps(true);
     colaAs.nodes(nodes).links(links).start(30)
 
     var edges = svgAs.selectAll("line").data(links).enter().append("line")
@@ -149,13 +171,13 @@ function drawAsTopo(div_id, json_astopo, width, height) {
 
     var nodes = svgAs.selectAll("circle").data(nodes).enter().append("circle")
             .attr("r", function(d) {
-                return (d.type == "root") ? 130 : r - 1;
+                return (d.type == "root") ? as_r : sv_r - 1;
             }).on("click", onAsServerClick).attr("opacity", function(d) {
                 return 0.5;
             }).style("fill", function(d, i) {
                 return (d.type == "root") ? "none" : color(d.group);
             }).style("stroke-width", function(d) {
-                return (d.type == "root") ? 6 : 2;
+                return (d.type == "root") ? as_st : sv_st;
             }).style("stroke", function(d) {
                 return colorServerDeselect;
             }).call(colaAs.drag);
@@ -163,19 +185,19 @@ function drawAsTopo(div_id, json_astopo, width, height) {
     colaAs.on("tick", function() {
 
         edges.attr("x1", function(d) {
-            return Math.max(r, Math.min(width - r, d.source.x));
+            return Math.max(sv_r, Math.min(width - sv_r, d.source.x));
         }).attr("y1", function(d) {
-            return Math.max(r, Math.min(height - r - 14, d.source.y));
+            return Math.max(sv_r, Math.min(height - sv_r - ft_h, d.source.y));
         }).attr("x2", function(d) {
-            return Math.max(r, Math.min(width - r, d.target.x));
+            return Math.max(sv_r, Math.min(width - sv_r, d.target.x));
         }).attr("y2", function(d) {
-            return Math.max(r, Math.min(height - r - 14, d.target.y));
+            return Math.max(sv_r, Math.min(height - sv_r - ft_h, d.target.y));
         });
 
         nodes.attr("cx", function(d) {
-            return d.x = Math.max(r, Math.min(width - r, d.x));
+            return d.x = Math.max(sv_r, Math.min(width - sv_r, d.x));
         }).attr("cy", function(d) {
-            return d.y = Math.max(r, Math.min(height - r - 14, d.y));
+            return d.y = Math.max(sv_r, Math.min(height - sv_r - ft_h, d.y));
         });
 
         texts.attr("transform", function(d) {
@@ -184,6 +206,9 @@ function drawAsTopo(div_id, json_astopo, width, height) {
     });
 }
 
+/*
+ * Creates handler to display AS topology server details per-click.
+ */
 function onAsServerClick(d) {
     ser_name = d.name;
     document.getElementById("as-selection").innerHTML = ser_name;
@@ -211,6 +236,9 @@ function onAsServerClick(d) {
     }
 }
 
+/*
+ * Maintains highlight status for selected server nodes.
+ */
 function updateNodeSelected(isSelected, selected) {
     d3.select(selected).style('stroke',
             isSelected ? colorServerSelect : colorServerDeselect);

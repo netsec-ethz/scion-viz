@@ -156,7 +156,7 @@
 
 
 <script type="text/javascript">
-    var resSegs, resCore, resUp, resDown, resPath, jTopo, json_astopo;
+    var resSegs, resCore, resUp, resDown, resPath, jTopo, json_as_topo;
     loadData('{{ err }}');
 
     var activeTab = null;
@@ -183,13 +183,13 @@
             document.getElementById("as-error").innerHTML = err;
             document.getElementById("as-error").style.color = 'red';
         }
-        resSegs = JSON.parse('{{ json_segtopo | safe }}');
+        resSegs = JSON.parse('{{ json_seg_topo | safe }}');
         resCore = resSegs.core_segments;
         resUp = resSegs.up_segments;
         resDown = resSegs.down_segments;
         resPath = JSON.parse('{{ json_paths | safe }}');
-        jTopo = JSON.parse('{{ json_pathtopo | safe }}');
-        json_astopo = JSON.parse('{{ json_astopo | safe }}');
+        jTopo = JSON.parse('{{ json_path_topo | safe }}');
+        json_as_topo = JSON.parse('{{ json_as_topo | safe }}');
 
         // load path topology
         var width = $("#as-pathtopo").width();
@@ -204,7 +204,7 @@
         // add AS topology layout
         var width = $("#as-astopo").width();
         var height = $("#as-astopo").height();
-        drawAsTopo("as-astopo", json_astopo, width, height);
+        drawAsTopo("as-astopo", json_as_topo, width, height);
     }
 </script>
 <noscript>This form requires that you have javascript enabled

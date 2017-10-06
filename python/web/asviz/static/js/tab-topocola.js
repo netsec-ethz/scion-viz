@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-// -------------------------------- General -----------------------------------
 var graphPath;
 var colorPath;
 var colaPath;
@@ -36,16 +35,23 @@ var possible_colors = {
     "none" : "#ffffff",
 }
 
+// Paths graph
 var default_link_color = "#999999";
 var default_link_opacity = "0.35";
+var p_link_dist = 80; // paths link distance
+var p_r = 20; // path node radius
+var pt_w = 90; // text node rect width
+var pt_h = 35; // text node rect height
+var pt_r = 4; // text node rect corner radius
+var pl_w = 20; // path legend width
 
-var link_dist = 80;
-var r = 20;
-var w = 90;
-var h = 35;
+var pageBounds;
+var circlesg;
+var linesg;
 
-// ------------------------------- Setup ----------------------------------
-
+/*
+ * Post-rendering method to add labels to paths graph.
+ */
 function topoSetup(msg, width, height) {
 
     if (graphPath == undefined) {
@@ -66,8 +72,16 @@ function topoSetup(msg, width, height) {
         addFixedLabel("source", (width * .4), (height * .85), true);
         source_added = true;
     }
+
+    // TODO (mwfarb): the position these text anchors should change with the
+    // relative number of as nodes to be increasingly farther apart
+    // and into the bottom corners to encourage complex paths to spread out for
+    // better viewing.
 }
 
+/*
+ * Post rendering method to assign colors to path node links and labels.
+ */
 function topoColor(msg) {
     for (key in msg) {
         colors[key] = msg[key];
@@ -96,6 +110,9 @@ function topoColor(msg) {
     }
 }
 
+/*
+ * Updates path visibility and style properties.
+ */
 function updatePathProperties(prevPath, currPath, color) {
     if (color != "none") {
         $(".source-" + prevPath + ".target-" + currPath).attr("stroke",
@@ -114,12 +131,9 @@ function updatePathProperties(prevPath, currPath, color) {
     }
 }
 
-// -------------------------------- Topology ----------------------------------
-
-var pageBounds;
-var circlesg;
-var linesg;
-
+/*
+ * Initializes paths graph, its handlers, and renders it.
+ */
 function drawTopology(div_id, original_json_data, width, height) {
 
     if (original_json_data.length == 0) {
@@ -134,7 +148,7 @@ function drawTopology(div_id, original_json_data, width, height) {
     console.log(JSON.stringify(graphPath));
 
     colorPath = d3.scale.category20();
-    colaPath = cola.d3adaptor().linkDistance(link_dist).avoidOverlaps(true)
+    colaPath = cola.d3adaptor().linkDistance(p_link_dist).avoidOverlaps(true)
             .handleDisconnected(true).size([ width, height ]).alpha(0);
 
     svgPath = d3.select("#" + div_id).append("svg").attr("width", width).attr(
@@ -152,10 +166,10 @@ function drawTopology(div_id, original_json_data, width, height) {
             [ colorPaths, colorSegCore, colorSegDown, colorSegUp ]).enter()
             .append("marker").attr("id", function(d) {
                 return d;
-            }).attr("viewBox", "0 -5 10 10").attr("refX", r + 10).attr("refY",
-                    -5).attr("markerWidth", 6).attr("markerHeight", 6).attr(
-                    "orient", "auto").append("path")
-            .attr("d", "M0,-5L10,0L0,5").attr('fill', function(d, i) {
+            }).attr("viewBox", "0 -5 10 10").attr("refX", p_r + 10).attr(
+                    "refY", -5).attr("markerWidth", 6).attr("markerHeight", 6)
+            .attr("orient", "auto").append("path").attr("d", "M0,-5L10,0L0,5")
+            .attr('fill', function(d, i) {
                 return d
             });
 
@@ -174,6 +188,10 @@ function drawTopology(div_id, original_json_data, width, height) {
     });
 }
 
+/*
+ * Calculates the constraints properties used by webcola to render initial graph
+ * inside window boundaries.
+ */
 function calcConstraints(realGraphNodes) {
     var topLeft = {
         x : pageBounds.x,
@@ -195,33 +213,37 @@ function calcConstraints(realGraphNodes) {
             type : 'separation',
             left : tlIndex,
             right : i,
-            gap : r
+            gap : p_r
         });
         constraints.push({
             axis : 'y',
             type : 'separation',
             left : tlIndex,
             right : i,
-            gap : r
+            gap : p_r
         });
         constraints.push({
             axis : 'x',
             type : 'separation',
             left : i,
             right : brIndex,
-            gap : r
+            gap : p_r
         });
         constraints.push({
             axis : 'y',
             type : 'separation',
             left : i,
             right : brIndex,
-            gap : r
+            gap : p_r
         });
     }
     return constraints;
 }
 
+/*
+ * Paths graph update method to iterate over all nodes and links when changes
+ * occur like, adding or removing path arcs.
+ */
 function update() {
     var realGraphNodes = graphPath.nodes.slice(0);
 
@@ -244,7 +266,7 @@ function update() {
     });
     var markerPath = pathsg.selectAll("path.marker").data(markerLinks)
     markerPath.enter().append("path").attr("class", function(d) {
-        console.log( "marker " + d.type);
+        console.log("marker " + d.type);
         return "marker " + d.type;
     }).attr("marker-end", function(d) {
         return "url(#" + d.color + ")";
@@ -263,17 +285,17 @@ function update() {
     }).call(colaPath.drag).attr("transform", transform);
 
     nodeg.append("rect").attr("width", function(d) {
-        return (d.type == "host") ? w : (2 * r)
+        return (d.type == "host") ? pt_w : (2 * p_r)
     }).attr("height", function(d) {
-        return (d.type == "host") ? h : (2 * r)
+        return (d.type == "host") ? pt_h : (2 * p_r)
     }).attr("rx", function(d) {
-        return (d.type == "host") ? 4 : (2 * r)
+        return (d.type == "host") ? pt_r : (2 * p_r)
     }).attr("ry", function(d) {
-        return (d.type == "host") ? 4 : (2 * r)
+        return (d.type == "host") ? pt_r : (2 * p_r)
     }).attr("x", function(d) {
-        return (d.type == "host") ? -w / 2 : -r
+        return (d.type == "host") ? -pt_w / 2 : -p_r
     }).attr("y", function(d) {
-        return (d.type == "host") ? -h / 2 : -r
+        return (d.type == "host") ? -pt_h / 2 : -p_r
     }).style("fill", function(d) {
         return (d.type == "host") ? "white" : colorPath(d.group);
     }).style("visibility", function(d) {
@@ -301,22 +323,28 @@ function update() {
     colaPath.start(10, 15, 20)
 }
 
+/*
+ * Returns the SVG instructions for rendering a path arc as a straight line.
+ */
 function linkStraight(d) {
-    var x1 = Math.max(r, Math.min(pageBounds.width - r, d.source.x));
-    var y1 = Math.max(r, Math.min(pageBounds.height - r, d.source.y));
-    var x2 = Math.max(r, Math.min(pageBounds.width - r, d.target.x));
-    var y2 = Math.max(r, Math.min(pageBounds.height - r, d.target.y));
+    var x1 = Math.max(p_r, Math.min(pageBounds.width - p_r, d.source.x));
+    var y1 = Math.max(p_r, Math.min(pageBounds.height - p_r, d.source.y));
+    var x2 = Math.max(p_r, Math.min(pageBounds.width - p_r, d.target.x));
+    var y2 = Math.max(p_r, Math.min(pageBounds.height - p_r, d.target.y));
 
     var dr = 0;
     return "M" + x1 + "," + y1 + "A" + dr + "," + dr + " 0 0,1 " + x2 + ","
             + y2;
 }
 
+/*
+ * Returns the SVG instructions for rendering a path arc.
+ */
 function linkArc(d) {
-    var x1 = Math.max(r, Math.min(pageBounds.width - r, d.source.x));
-    var y1 = Math.max(r, Math.min(pageBounds.height - r, d.source.y));
-    var x2 = Math.max(r, Math.min(pageBounds.width - r, d.target.x));
-    var y2 = Math.max(r, Math.min(pageBounds.height - r, d.target.y));
+    var x1 = Math.max(p_r, Math.min(pageBounds.width - p_r, d.source.x));
+    var y1 = Math.max(p_r, Math.min(pageBounds.height - p_r, d.source.y));
+    var x2 = Math.max(p_r, Math.min(pageBounds.width - p_r, d.target.x));
+    var y2 = Math.max(p_r, Math.min(pageBounds.height - p_r, d.target.y));
 
     var dx = x2 - x1;
     var dy = y2 - y1;
@@ -325,24 +353,29 @@ function linkArc(d) {
             + y2;
 }
 
+/*
+ * Creates the instructions for positioning each node.
+ */
 function transform(d) {
-    var dx = Math.max(r, Math.min(pageBounds.width - r, d.x));
-    var dy = Math.max(r, Math.min(pageBounds.height - r, d.y));
+    var dx = Math.max(p_r, Math.min(pageBounds.width - p_r, d.x));
+    var dy = Math.max(p_r, Math.min(pageBounds.height - p_r, d.y));
     return "translate(" + dx + "," + dy + ")";
 }
 
+/*
+ * Renders the paths legend and color key.
+ */
 function drawLegend(core) {
     // Legend
-    var k = 20;
     var legend = svgPath.selectAll(".legend").data(colorPath.domain()).enter()
             .append("g").attr("class", "legend").attr(
                     "transform",
                     function(d, i) {
-                        return "translate(0," + (core ? i : (i - 1) / 2) * k
+                        return "translate(0," + (core ? i : (i - 1) / 2) * pl_w
                                 + ")";
                     });
 
-    legend.append("rect").attr("x", 0).attr("width", k).attr("height", k)
+    legend.append("rect").attr("x", 0).attr("width", pl_w).attr("height", pl_w)
             .style("fill", colorPath).style("visibility", function(d) {
                 if ((d % 2) === 0) {
                     return core ? "visible" : "hidden";
@@ -351,16 +384,19 @@ function drawLegend(core) {
                 }
             })
 
-    legend.append("text").attr("x", k + 5).attr("y", k / 2).attr("dy", ".35em")
-            .style("text-anchor", "begin").text(function(d) {
-                if ((d % 2) === 0) {
-                    return core ? 'ISD-' + ((d / 4) + 1) + ' core' : null;
-                } else {
-                    return 'ISD-' + (((d - 1) / 4) + 1);
-                }
-            });
+    legend.append("text").attr("x", pl_w + 5).attr("y", pl_w / 2).attr("dy",
+            ".35em").style("text-anchor", "begin").text(function(d) {
+        if ((d % 2) === 0) {
+            return core ? 'ISD-' + ((d / 4) + 1) + ' core' : null;
+        } else {
+            return 'ISD-' + (((d - 1) / 4) + 1);
+        }
+    });
 }
 
+/*
+ * Post-rendering method to add a label attached to a fixed point on the graph.
+ */
 function addFixedLabel(label, x, y, lastLabel) {
     // remove last 2 constraint nodes from the end first
     if (!lastLabel) {
@@ -392,6 +428,9 @@ function addFixedLabel(label, x, y, lastLabel) {
     }
 }
 
+/*
+ * Post-rendering method to draw path arcs for the given path and color.
+ */
 function drawPath(res, path, color) {
     // get the index of the routes to render
     var routes = [];
@@ -437,6 +476,9 @@ function drawPath(res, path, color) {
     update();
 }
 
+/*
+ * Removes all path arcs from the graph.
+ */
 function restorePath() {
 
     topoColor({
@@ -450,5 +492,4 @@ function restorePath() {
         return !link.path;
     });
     update();
-
 }

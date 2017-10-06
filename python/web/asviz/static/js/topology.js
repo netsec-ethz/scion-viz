@@ -14,18 +14,20 @@
  * limitations under the License.
  */
 
-var typeCore = 'CORE';
-var typeParent = 'PARENT';
-var typePeer = 'PEER';
-var typeChild = 'CHILD';
+var LinkType = {
+    Core : 'CORE',
+    Parent : 'PARENT',
+    Peer : 'PEER',
+    Child : 'CHILD',
+};
 
 var ISDAS = new RegExp("^[0-9]*-[0-9]*$");
 var ISD = new RegExp("^[0-9]*");
 var AS = new RegExp("[0-9]*$");
 
-/**
- * Retrieve given ID because the link will consist of source-target. or
- * target-source,
+/*
+ * Retrieve given ID because the link will consist of source-target or
+ * target-source.
  */
 function getPathId(source, target) {
     var res = 'null';
@@ -50,8 +52,12 @@ function getPathId(source, target) {
     return res;
 }
 
+/*
+ * Placeholder nodes ensure dark/light node color patterns will be consistent
+ * and always shift the color scheme by 2: 1 core, 1 not-core.
+ */
 function addPlaceholderNode(graph, n, core) {
-    var name = ((n + 1) + "-" + (n + 100 + core));
+    var name = (n + 1) + "-" + (n + 100 + core);
     var group = ((ISD.exec(name) - 1) * 4) + core;
     graph["nodes"].push({
         name : name,
@@ -60,6 +66,10 @@ function addPlaceholderNode(graph, n, core) {
     });
 }
 
+/*
+ * Sorting method for nodes that will ensure consistent grouping alignment when
+ * D3 uses a color map.
+ */
 function sortTopologyGraph(graph) {
     // add placeholder nodes for consistent coloring
     var maxIsd = 0;
@@ -79,7 +89,7 @@ function sortTopologyGraph(graph) {
         if (ph == 0) {
             var isd = ISD.exec(a.name) - ISD.exec(b.name);
             if (isd == 0) {
-                var core = (a.type != typeCore) - (b.type != typeCore);
+                var core = (a.type != LinkType.Core) - (b.type != LinkType.Core);
                 if (core == 0) {
                     var as = AS.exec(a.type) - AS.exec(b.type);
                     if (as == 0) {
@@ -99,6 +109,9 @@ function sortTopologyGraph(graph) {
     }
 }
 
+/*
+ * Helper method for adding unique AS nodes for paths graph.
+ */
 function addNodeFromLink(graph, name, type, node) {
     var core = (type.toLowerCase() == "core") ? 0 : 1;
     var group = ((ISD.exec(name) - 1) * 4) + core;
@@ -110,6 +123,9 @@ function addNodeFromLink(graph, name, type, node) {
     graph["ids"][name] = node;
 }
 
+/*
+ * Converts links-only topology data into D3 graph layout.
+ */
 function convertLinks2Graph(links_topo) {
     var graph = {
         nodes : [],
@@ -140,6 +156,9 @@ function convertLinks2Graph(links_topo) {
     return graph;
 }
 
+/*
+ * Converts multipath-demo topology data into D3 graph layout.
+ */
 function convertTopo2Graph(topology) {
     var graph = {
         nodes : [],

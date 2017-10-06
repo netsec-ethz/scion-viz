@@ -12,15 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from datetime import datetime
-from django.shortcuts import render
 import json
 import logging
 import os
 import re
 import subprocess
 import time
+from datetime import datetime
+from django.shortcuts import render
 
+import lib.app.sciond as lib_sciond
 from as_viewer.settings import SCION_ROOT
 from lib.app.sciond import SCIONDConnectionError, SCIONDResponseError
 from lib.crypto.certificate_chain import get_cert_chain_file_path
@@ -36,7 +37,6 @@ from lib.packet.opaque_field import HopOpaqueField, InfoOpaqueField
 from lib.packet.scion_addr import ISD_AS
 from lib.topology import Topology
 from lib.types import ServiceType
-import lib.app.sciond as lib_sciond
 
 
 # topology class definitions
@@ -47,10 +47,11 @@ topo_zk = ['ZOOKEEPER']
 
 logging = logging.getLogger("asviz")
 
-astopo_path = ''
+as_topo_path = ''
 sock_file = ''
 trc_path = ''
 crt_path = ''
+connector = {}
 
 
 def get_as_view_html(paths, csegs, usegs, dsegs):
@@ -67,27 +68,6 @@ def get_as_view_html(paths, csegs, usegs, dsegs):
     for str in s:
         out_str += (str + '\n')
     return out_str
-
-
-def html_as_topology(s, t, topo):
-    '''
-    Formats AS topology into HTML.
-    '''
-    list_add(s, "AS TOPOLOGY: %s" % t.isd_as)
-    indent_open(s)
-    list_add(s, "is_core_as: %s" % t.is_core_as)
-    list_add(s, "mtu: %s" % t.mtu)
-    for servers in topo:
-        idx = 1
-        for v in topo[servers]:
-            if servers in topo_servers:
-                p_server_element(s, v, servers)
-            elif servers in topo_br:
-                p_router_element(s, v, servers)
-            elif servers in topo_zk:
-                p_zookeeper(s, v, idx)
-            idx += 1
-    indent_close(s)
 
 
 def html_paths(s, paths):
@@ -161,6 +141,7 @@ def get_json_all_segments(csegs, usegs, dsegs):
     data["core_segments"] = get_json_segments(csegs)
     data["up_segments"] = get_json_segments(usegs)
     data["down_segments"] = get_json_segments(dsegs)
+    logging.debug(data)
     return data
 
 
@@ -180,6 +161,7 @@ def get_json_paths(paths):
         cores.append(core)
     path = {}
     path["if_lists"] = cores
+    logging.debug(path)
     return path
 
 
@@ -212,7 +194,8 @@ def json_append_zookeeper(nodes, links, isd_as, v, name, idx):
 
 def get_json_as_topology_sciond(connector, paths):
     '''
-    Format all socket bind sciond AS topology data as graph
+    Format all sciond AS topology data as a graph.
+    Data comes from lib.app.sciond.
     '''
     nodes = []
     links = []
@@ -256,7 +239,6 @@ def get_json_as_topology_sciond(connector, paths):
             if_idx += 1
 
         logging.info("\n-------- SCIOND: Service Info")
-        # kills sciond: lib_sciond.get_service_info([ServiceType.BR])
         srvs = [ServiceType.BS, ServiceType.PS,
                 ServiceType.CS, ServiceType.SIBRA]
         v = lib_sciond.get_service_info(
@@ -279,12 +261,14 @@ def get_json_as_topology_sciond(connector, paths):
     graph = {}
     graph["nodes"] = nodes
     graph["links"] = links
+    logging.debug(graph)
     return graph
 
 
 def get_json_as_topology(t, topo):
     '''
-    Format all direct bind sciond AS topology data as graph
+    Format all sciond AS topology data as a graph.
+    Data comes from SCIONDaemon.topology.
     '''
     nodes = []
     links = []
@@ -318,6 +302,7 @@ def get_json_as_topology(t, topo):
     graph = {}
     graph["nodes"] = nodes
     graph["links"] = links
+    logging.debug(graph)
     return graph
 
 
@@ -561,6 +546,7 @@ def get_json_path_segs(paths, csegs, usegs, dsegs):
     add_seg_links(usegs, data, links, "PARENT")
     add_seg_links(dsegs, data, links, "PARENT")
     add_nonseg_links(paths, data, links, "CHILD")
+    logging.debug(data)
     return data
 
 
@@ -682,23 +668,23 @@ def html_jsonfile(path):
     Parses json data into html nested lists.
     :param path: Path to json file.
     '''
+    logging.info(path)
     with open(path, 'r') as fin:
         file = json.load(fin)
-
     s = []
     s.append("<ul class='tree'>")
     step_json(s, file)
     indent_close(s)
-
     out_str = ''
     for str in s:
         out_str += (str + '\n')
+    logging.info(out_str)
     return out_str
 
 
 def camel_2_title(label):
     '''
-    Convert key name camel case into title casse.
+    Convert key name camel case into title case.
     :param label: Camel-cased label.
     '''
     return re.sub("([a-z])([A-Z])", "\g<1> \g<2>", label)
@@ -736,146 +722,103 @@ def set_param(request, name, default):
     Generic handler for validating incoming url parameters.
     :param request: HTML request object containing url parameters.
     :param name: Parameter name.
-    :param default: Devault value of parameter.
+    :param default: Default value of parameter.
     '''
     value = request.GET.get(name)
     logging.info("%s = %s" % (name, value))
-    if not (value) or (value == ''):
+    if not value or value == '':
         value = default
     return value
 
 
+def launch_sciond(sock_file, addr):
+    # we need an asynchronous call, use Popen()
+    cmd = 'cd %s && bin/sciond --api-addr /run/shm/sciond/sd%s.sock \
+        sd%s gen/ISD%s/AS%s/endhost' % (
+        SCION_ROOT, s_isd_as, s_isd_as, s_isd_as._isd, s_isd_as._as)
+    if addr and addr != '':
+        cmd = '%s --addr %s' % (cmd, addr)
+    logging.info("Listening for sciond: %s" % cmd)
+    subprocess.Popen(cmd, shell=True)
+    wait = 0
+    while not os.path.exists(sock_file) and wait < 5:
+        wait = wait + 1
+        time.sleep(1)
+
+
 def index(request):
     '''
-    Main index handler for index.html for main vizualization page.
+    Main index handler for index.html for main visualization page.
     Validates parameters, request scion data, returns formatted response.
     :param request: HTML request object containing url parameters.
     '''
-    connector = {}
     tab = set_param(request, 'tab', 'tab-pathtopo')
     data = set_param(request, 'data', 'sdapi')
     addr = set_param(request, 'addr', '')
     src = set_param(request, 'src', '')
     dst = set_param(request, 'dst', '')
-
     if (src == '' and dst == ''):
         return fmt_err(request, '', src, dst, addr, data, tab)
-
+    s_isd_as = ISD_AS(src)
+    d_isd_as = ISD_AS(dst)
+    csegs = dsegs = usegs = []
+    paths = errmsg = ''
+    logging.info("Requesting sciond data from %s to %s" % (s_isd_as, d_isd_as))
     try:
-        s_isd_as = ISD_AS(src)
-        d_isd_as = ISD_AS(dst)
-        logging.info("Requesting sciond data from %s to %s" %
-                     (s_isd_as, d_isd_as))
-
-        csegs = []  # sd.core_segments()
-        dsegs = []  # sd.down_segments()
-        usegs = []  # sd.up_segments()
-        paths = ''
-        errmsg = ''
-
         if (data == 'sdapi'):
             sock_file = os.path.join(
                 SCIOND_API_SOCKDIR, "sd%s.sock" % s_isd_as)
-            cmd = 'cd %s && bin/sciond --api-addr /run/shm/sciond/sd%s.sock \
-                sd%s gen/ISD%s/AS%s/endhost' % (
-                SCION_ROOT, s_isd_as, s_isd_as, s_isd_as._isd, s_isd_as._as)
-            if (addr) and (addr != ''):
-                cmd = '%s --addr %s' % (cmd, addr)
-
             connector[s_isd_as] = lib_sciond.init(sock_file)
             logging.info(connector[s_isd_as]._api_addr)
 
-            # test if sciond is already running for this AS
-            try:
+            try:  # test if sciond is already running for this AS
                 logging.info("Testing sciond at %s" % sock_file)
                 lib_sciond.get_as_info(connector=connector[s_isd_as])
             except (SCIONDResponseError) as err:
-                logging.error("%s: %s" % (err.__class__.__name__, err))
                 return fmt_err(request, str(err), src, dst, addr, data, tab)
             except (SCIONDConnectionError, FileNotFoundError) as err:
                 logging.warning("%s: %s" % (err.__class__.__name__, err))
-
                 # need to launch sciond, wait for uptime
-                # we need an asynchronous call, use Popen()
-                logging.info("Listening for sciond: %s" % cmd)
-                subprocess.Popen(cmd, shell=True)
-                wait = 0
-                while (not os.path.exists(sock_file) and wait < 5):
-                    wait = wait + 1
-                    time.sleep(1)
+                launch_sciond(sock_file, addr)
 
-            # AS topo
-            astopo_path = sock_file
-            json_astopo = json.dumps(
+            json_as_topo = json.dumps(  # AS topo
                 get_json_as_topology_sciond(connector[s_isd_as], paths))
-            logging.debug(json_astopo)
-
-            # PATHS
-            if (dst != ''):
+            if (dst != ''):  # PATHS
                 try:
                     paths = lib_sciond.get_paths(
                         d_isd_as, connector=connector[s_isd_as])
-                    logging.info("\n-------- SCIOND: Paths")
-                    for path in paths:
-                        logging.info(path.__dict__)
                 except (SCIONDResponseError, SCIONDConnectionError) as err:
                     logging.error("%s: %s" % (err.__class__.__name__, err))
                     errmsg = str(err)
-
-            # TRC
             json_trc = ("TRC information for sciond not yet implemented.")
-            # cert chain
             json_crt = (
                 "Certificate information for sciond not yet implemented.")
-
         elif (data == 'file'):
             conf_dir = "%s/%s/ISD%s/AS%s/endhost" % (
                 SCION_ROOT, GEN_PATH, s_isd_as._isd, s_isd_as._as)
-
-            # AS topo
-            astopo_path = os.path.join(conf_dir, TOPO_FILE)
-            t = Topology.from_file(astopo_path)
+            t = Topology.from_file(os.path.join(conf_dir, TOPO_FILE))
             topo = organize_topo(t)
-            json_astopo = json.dumps(get_json_as_topology(t, topo))
-            logging.debug(json_astopo)
-
-            # TRC
-            trc_ver = 0
-            trc_path = get_trc_file_path(conf_dir, s_isd_as._isd, trc_ver)
-            logging.info(trc_path)
-            json_trc = html_jsonfile(trc_path)
-            logging.info(json_trc)
-            # cert chain
-            crt_ver = 0
-            crt_path = get_cert_chain_file_path(conf_dir, s_isd_as, crt_ver)
-            logging.info(crt_path)
-            json_crt = html_jsonfile(crt_path)
-            logging.info(json_crt)
+            json_as_topo = json.dumps(get_json_as_topology(t, topo))
+            json_trc = html_jsonfile(
+                get_trc_file_path(conf_dir, s_isd_as._isd, 0))
+            json_crt = html_jsonfile(
+                get_cert_chain_file_path(conf_dir, s_isd_as, 0))
 
         path_info = get_as_view_html(paths, csegs, usegs, dsegs)
-
-        json_pathtopo = json.dumps(
+        json_path_topo = json.dumps(
             get_json_path_segs(paths, csegs, usegs, dsegs))
-        logging.debug(json_pathtopo)
-
-        json_segtopo = json.dumps(get_json_all_segments(csegs, usegs, dsegs))
-        logging.debug(json_segtopo)
-
+        json_seg_topo = json.dumps(get_json_all_segments(csegs, usegs, dsegs))
         json_paths = json.dumps(get_json_paths(paths))
-        logging.debug(json_paths)
-
     except (SCIONBaseError) as err:
-        logging.error("%s: %s" % (err.__class__.__name__, err))
         return fmt_err(request, str(err), src, dst, addr, data, tab)
-
     return render(request, 'asviz/index.html', {
         'err': errmsg,
         'json_trc': json_trc,
         'json_crt': json_crt,
         'json_paths': json_paths,
-        'json_pathtopo': json_pathtopo,
-        'json_segtopo': json_segtopo,
-        'json_astopo': json_astopo,
+        'json_path_topo': json_path_topo,
+        'json_seg_topo': json_seg_topo,
+        'json_as_topo': json_as_topo,
         'path_info': path_info,
         'src': src, 'dst': dst, 'addr': addr, 'data': data, 'tab': tab,
     })
@@ -885,14 +828,15 @@ def fmt_err(request, err,  src,  dst, addr, data,  tab):
     '''
     Format error message with to return with null response.
     '''
+    logging.error("%s: %s" % (err.__class__.__name__, err))
     return render(request, 'asviz/index.html', {
         'err': err,
         'json_trc': '',
         'json_crt': '',
         'json_paths': '{}',
-        'json_pathtopo': '{}',
-        'json_segtopo': '{}',
-        'json_astopo': '{"links": [], "nodes": []}',
+        'json_path_topo': '{}',
+        'json_seg_topo': '{}',
+        'json_as_topo': '{"links": [], "nodes": []}',
         'path_info': '',
         'src': src, 'dst': dst, 'addr': addr, 'data': data, 'tab': tab,
     })

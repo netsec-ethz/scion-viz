@@ -17,16 +17,16 @@
 =================================================
 """
 
-from os.path import dirname as dir
 import argparse
 import json
 import logging
 import os
 import subprocess
 import time
+from os.path import dirname as dir
 
+import lib.app.sciond as lib_sciond
 from lib.app.sciond import SCIONDConnectionError, SCIONDResponseError
-from lib.config import Config
 from lib.crypto.certificate_chain import get_cert_chain_file_path
 from lib.crypto.trc import get_trc_file_path
 from lib.defines import (
@@ -38,16 +38,17 @@ from lib.defines import (
 from lib.packet.host_addr import HostAddrIPv4
 from lib.packet.opaque_field import HopOpaqueField, InfoOpaqueField
 from lib.packet.scion_addr import ISD_AS
-from lib.path_store import PathPolicy
 from lib.types import ServiceType
-import lib.app.sciond as lib_sciond
 
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+SCION_ROOT = dir(dir(BASE_DIR))
 
 # topology class definitions
 topo_servers = ['BEACON', 'CERTIFICATE', 'PATH', 'SIBRA']
 topo_br = ['CORE_BR', 'PARENT_BR', 'CHILD_BR', 'PEER_BR', 'BORDER']
 topo_if = ['CORE_IF', 'PARENT_IF', 'CHILD_IF', 'PEER_IF']
 topo_zk = ['ZOOKEEPER']
+connector = {}
 
 
 def init():
@@ -96,103 +97,93 @@ def print_as_viewer_info(addr):
     :param addr: Optional IP Address for sciond socket binding when not
         localhost.
     '''
-    connector = {}
-    BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    SCION_ROOT = dir(dir(BASE_DIR))
+    try:
+        # init connection to sciond
+        conf_dir = "%s/%s/ISD%s/AS%s/endhost" % (
+            SCION_ROOT, GEN_PATH, s_isd_as._isd, s_isd_as._as)
+        sock_file = os.path.join(SCIOND_API_SOCKDIR, "sd%s.sock" % s_isd_as)
+        connector[s_isd_as] = lib_sciond.init(sock_file)
+        logging.info(connector[s_isd_as]._api_addr)
+        try:  # test if sciond is already running for this AS
+            logging.info("Starting sciond at %s" % sock_file)
+            lib_sciond.get_as_info(connector=connector[s_isd_as])
+        except (SCIONDResponseError) as err:
+            logging.error("%s: %s" % (err.__class__.__name__, err))
+            return
+        except (SCIONDConnectionError, FileNotFoundError) as err:
+            logging.warning("%s: %s" % (err.__class__.__name__, err))
+            # need to launch sciond, wait for uptime
+            launch_sciond(sock_file, addr)
+        if args.t:  # as topology
+            print_as_topology(s_isd_as, connector)
+        if args.p:  # announced paths
+            print_paths(s_isd_as, d_isd_as, connector)
+        if args.c:  # config
+            print_yml(os.path.join(conf_dir, AS_CONF_FILE))
+        if args.pp:  # path policy
+            print_yml(os.path.join(conf_dir, PATH_POLICY_FILE))
+        if args.trc:  # TRC
+            print_json(get_trc_file_path(conf_dir, s_isd_as._isd, 0))
+        if args.crt:  # cert chain
+            print_json(get_cert_chain_file_path(conf_dir, s_isd_as, 0))
+    except (SCIONBaseError) as err:
+        logging.error("%s: %s" % (err.__class__.__name__, err))
 
-    # init connection to sciond
-    conf_dir = "%s/%s/ISD%s/AS%s/endhost" % (
-        SCION_ROOT, GEN_PATH, s_isd_as._isd, s_isd_as._as)
 
-    sock_file = os.path.join(SCIOND_API_SOCKDIR, "sd%s.sock" % s_isd_as)
+def launch_sciond(sock_file, addr):
+    '''
+    Launch sciond process with or without optional IP address when not using
+    localhost.
+    '''
+    # we need an asynchronous call, use Popen()
     cmd = 'cd %s && bin/sciond --api-addr /run/shm/sciond/sd%s.sock sd%s \
         gen/ISD%s/AS%s/endhost' % (
         SCION_ROOT, s_isd_as, s_isd_as, s_isd_as._isd, s_isd_as._as)
-    if (addr) and (addr != ''):
+    if addr and addr != '':
         cmd = '%s --addr %s' % (cmd, addr)
-
-    connector[s_isd_as] = lib_sciond.init(sock_file)
-    logging.info(connector[s_isd_as]._api_addr)
-
-    # test if sciond is already running for this AS
-    try:
-        logging.info("Starting sciond at %s" % sock_file)
-        lib_sciond.get_as_info(connector=connector[s_isd_as])
-    except (SCIONDResponseError) as err:
-        logging.error("%s: %s" % (err.__class__.__name__, err))
-        return
-    except (SCIONDConnectionError, FileNotFoundError) as err:
-        logging.warning("%s: %s" % (err.__class__.__name__, err))
-
-        # need to launch sciond, wait for uptime
-        # we need an asynchronous call, use Popen()
-        logging.info("Listening for sciond: %s" % cmd)
-        subprocess.Popen(cmd, shell=True)
-        wait = 0
-        while (not os.path.exists(sock_file) and wait < 5):
-            wait = wait + 1
-            time.sleep(1)
-
-    try:
-        # arguments
-        if args.t:  # as topology
-            t = lib_sciond.get_as_info()
-            i = lib_sciond.get_if_info()
-            # kills sciond: lib_sciond.get_service_info([ServiceType.BR])
-            srvs = [ServiceType.BS, ServiceType.PS,
-                    ServiceType.CS, ServiceType.SIBRA]
-            try:
-                v = lib_sciond.get_service_info(srvs)
-            except (SCIONDResponseError) as err:
-                logging.error("%s: %s" % (err.__class__.__name__, err))
-                return
-            print_as_topology(t, i, v)
-
-        if args.p:  # announced paths
-            paths = lib_sciond.get_paths(d_isd_as,
-                                         connector=connector[s_isd_as])
-            print_paths(paths)
-
-    except (SCIONDResponseError) as err:
-        logging.error("%s: %s" % (err.__class__.__name__, err))
-        return
-
-    if args.c:  # config
-        cfg_path = os.path.join(conf_dir, AS_CONF_FILE)
-        logging.info(cfg_path)
-        c = Config.from_file(cfg_path)
-        logging.info(c.__dict__)
-
-    if args.pp:  # path policy
-        pp_path = os.path.join(conf_dir, PATH_POLICY_FILE)
-        logging.info(pp_path)
-        pp = PathPolicy.from_file(pp_path)
-        logging.info(pp.__dict__)
-
-    if args.trc:  # TRC
-        trc_ver = 0
-        trc_path = get_trc_file_path(conf_dir, s_isd_as._isd, trc_ver)
-        logging.info(trc_path)
-        with open(trc_path, 'r') as fin:
-            parsed = json.load(fin)
-        logging.info(json.dumps(parsed, indent=4))
-
-    if args.crt:  # cert chain
-        crt_ver = 0
-        crt_path = get_cert_chain_file_path(conf_dir, s_isd_as, crt_ver)
-        logging.info(crt_path)
-        with open(crt_path, 'r') as fin:
-            parsed = json.load(fin)
-        logging.info(json.dumps(parsed, indent=4))
+    logging.info("Listening for sciond: %s" % cmd)
+    subprocess.Popen(cmd, shell=True)
+    wait = 0
+    while not os.path.exists(sock_file) and wait < 5:
+        wait = wait + 1
+        time.sleep(1)
 
 
-def print_as_topology(t, i, s):
+def print_yml(path):
+    '''
+    Prints the contents of the file.
+    '''
+    logging.info(path)
+    file = open(path, 'r')
+    logging.info(file.read())
+
+
+def print_json(path):
+    '''
+    Prints the contents of the json file with indentations.
+    '''
+    logging.info(path)
+    with open(path, 'r') as fin:
+        parsed = json.load(fin)
+    logging.info(json.dumps(parsed, indent=4))
+
+
+def print_as_topology(s_isd_as, connector):
     '''
     Print AS Topology data from lib.app.sciond.
     :param t: Array of ASInfo objects.
     :param i: Array of InterfaceInfo objects.
     :param s: Array of ServiceInfo objects.
     '''
+    try:
+        t = lib_sciond.get_as_info(connector=connector[s_isd_as])
+        i = lib_sciond.get_if_info(connector=connector[s_isd_as])
+        srvs = [ServiceType.BS, ServiceType.PS,
+                ServiceType.CS, ServiceType.SIBRA]
+        s = lib_sciond.get_service_info(srvs, connector=connector[s_isd_as])
+    except (SCIONDResponseError) as err:
+        logging.error("%s: %s" % (err.__class__.__name__, err))
+        return
     for v in t:
         logging.info("----------------- AS TOPOLOGY: %s" % ISD_AS(v.p.isdas))
         logging.info("is_core_as: %s" % v.p.isCore)
@@ -205,11 +196,16 @@ def print_as_topology(t, i, s):
         ridx += 1
 
 
-def print_paths(paths):
+def print_paths(s_isd_as, d_isd_as, connector):
     '''
     Print AS announced paths data from lib.app.sciond.
     :param paths: Array of PathInfo objects.
     '''
+    try:
+        paths = lib_sciond.get_paths(d_isd_as, connector=connector[s_isd_as])
+    except (SCIONDResponseError) as err:
+        logging.error("%s: %s" % (err.__class__.__name__, err))
+        return
     i = 1
     # enumerate all paths
     for path in paths:
