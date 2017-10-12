@@ -78,10 +78,7 @@
  stroke-dasharray: 0, 2 1;
 }
 
-.nodes.CORE {
- stroke-width: 2.5px;
-}
-
 .link.SELECTED {
  stroke: red;
 }
+
