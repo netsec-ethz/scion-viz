@@ -731,7 +731,7 @@ def set_param(request, name, default):
     return value
 
 
-def launch_sciond(sock_file, addr):
+def launch_sciond(sock_file, addr, s_isd_as):
     # we need an asynchronous call, use Popen()
     cmd = 'cd %s && bin/sciond --api-addr /run/shm/sciond/sd%s.sock \
         sd%s gen/ISD%s/AS%s/endhost' % (
@@ -779,7 +779,7 @@ def index(request):
             except (SCIONDConnectionError, FileNotFoundError) as err:
                 logging.warning("%s: %s" % (err.__class__.__name__, err))
                 # need to launch sciond, wait for uptime
-                launch_sciond(sock_file, addr)
+                launch_sciond(sock_file, addr, s_isd_as)
 
             json_as_topo = json.dumps(  # AS topo
                 get_json_as_topology_sciond(connector[s_isd_as], paths))
