@@ -85,21 +85,26 @@ function sortTopologyGraph(graph) {
     }
     // sort for optimal color coding display
     graph.nodes.sort(function(a, b) {
-        var ph = (a.type != "placeholder") - (b.type != "placeholder");
+        var ph = (a.type !== "placeholder") - (b.type !== "placeholder");
         if (ph == 0) {
-            var isd = ISD.exec(a.name) - ISD.exec(b.name);
-            if (isd == 0) {
-                var core = (a.type != LinkType.Core) - (b.type != LinkType.Core);
-                if (core == 0) {
-                    var as = AS.exec(a.type) - AS.exec(b.type);
-                    if (as == 0) {
-                        return 0;
+            var grp = a.group - b.group;
+            if (grp == 0) {
+                var isd = ISD.exec(a.name) - ISD.exec(b.name);
+                if (isd == 0) {
+                    var core = (a.type != LinkType.Core)
+                            - (b.type != LinkType.Core);
+                    if (core == 0) {
+                        var as = AS.exec(a.type) - AS.exec(b.type);
+                        if (as == 0) {
+                            return 0;
+                        }
+                        return as;
                     }
-                    return as;
+                    return core;
                 }
-                return core;
+                return isd;
             }
-            return isd;
+            return grp;
         }
         return ph;
     });
@@ -113,7 +118,7 @@ function sortTopologyGraph(graph) {
  * Helper method for adding unique AS nodes for paths graph.
  */
 function addNodeFromLink(graph, name, type, node) {
-    var core = (type.toLowerCase() == "core") ? 0 : 1;
+    var core = (type.toLowerCase() === "core") ? 0 : 1;
     var group = ((ISD.exec(name) - 1) * 4) + core;
     graph["nodes"].push({
         name : name,

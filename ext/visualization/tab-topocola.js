@@ -203,22 +203,63 @@ function drawTopo() {
             return d.y + (h / 4);
         });
     });
+    drawLegend(self.jTopo);
+}
 
-    // Legend
+/*
+ * Build legend labels based only on visible nodes.
+ */
+function buildLabels(json_path) {
+    var shown = [];
+    for (var i = 0; i < json_path.length; i++) {
+        var core = json_path[i].ltype == 'CORE'
+        var isdA = json_path[i].a.split('-')[0]
+        var isdB = json_path[i].b.split('-')[0]
+        if (core) {
+            shown.push(((parseInt(isdA) - 1) * 4) + (core ? 0 : 1))
+            shown.push(((parseInt(isdB) - 1) * 4) + (core ? 0 : 1))
+        } else {
+            // only link dest is non-core
+            shown.push(((parseInt(isdB) - 1) * 4) + (core ? 0 : 1))
+        }
+    }
+    return shown;
+}
+
+/*
+ * Renders the paths legend and color key.
+ */
+function drawLegend(json_path) {
+    var shown = buildLabels(json_path)
+    var pos = 0;
     var legend = svg.selectAll(".legend").data(color.domain()).enter().append(
             "g").attr("class", "legend").attr("transform", function(d, i) {
-        return "translate(0," + i * 20 + ")";
+        if (shown.includes(d)) {
+            var render = "translate(0," + pos * 20 + ")";
+            pos++;
+            return render;
+        } else {
+            return "translate(0,0)";
+        }
     });
-
     legend.append("rect").attr("x", 0).attr("width", 18).attr("height", 18)
-            .style("fill", color);
-
+            .style("fill", color).style("visibility", function(d) {
+                if (shown.includes(d)) {
+                    return "visible";
+                } else {
+                    return "hidden";
+                }
+            })
     legend.append("text").attr("x", 18 + 5).attr("y", 9).attr("dy", ".35em")
             .style("text-anchor", "begin").text(function(d) {
-                if ((d % 2) === 0) {
-                    return 'ISD-' + ((d / 4) + 1) + ' core';
+                if (shown.includes(d)) {
+                    if ((d % 2) === 0) {
+                        return 'ISD-' + ((d / 4) + 1) + ' core';
+                    } else {
+                        return 'ISD-' + (((d - 1) / 4) + 1);
+                    }
                 } else {
-                    return 'ISD-' + (((d - 1) / 4) + 1);
+                    return null;
                 }
             });
 }
