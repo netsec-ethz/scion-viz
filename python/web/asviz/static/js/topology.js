@@ -89,7 +89,8 @@ function sortTopologyGraph(graph) {
         if (ph == 0) {
             var isd = ISD.exec(a.name) - ISD.exec(b.name);
             if (isd == 0) {
-                var core = (a.type != LinkType.Core) - (b.type != LinkType.Core);
+                var core = (a.type != LinkType.Core)
+                        - (b.type != LinkType.Core);
                 if (core == 0) {
                     var as = AS.exec(a.type) - AS.exec(b.type);
                     if (as == 0) {

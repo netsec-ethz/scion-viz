@@ -266,7 +266,6 @@ function update() {
     });
     var markerPath = pathsg.selectAll("path.marker").data(markerLinks)
     markerPath.enter().append("path").attr("class", function(d) {
-        console.log("marker " + d.type);
         return "marker " + d.type;
     }).attr("marker-end", function(d) {
         return "url(#" + d.color + ")";
@@ -465,13 +464,16 @@ function drawPath(res, path, color) {
         return !link.path;
     });
     for (var i = 0; i < path_ids.length - 1; i++) {
-        graphPath.links.push({
-            "color" : color,
-            "path" : true,
-            "source" : graphPath["ids"][path_ids[i]],
-            "target" : graphPath["ids"][path_ids[i + 1]],
-            "type" : "PARENT"
-        });
+        // prevent src == dst links from being formed
+        if (path_ids[i] != path_ids[i + 1]) {
+            graphPath.links.push({
+                "color" : color,
+                "path" : true,
+                "source" : graphPath["ids"][path_ids[i]],
+                "target" : graphPath["ids"][path_ids[i + 1]],
+                "type" : "PARENT"
+            });
+        }
     }
     update();
 }
