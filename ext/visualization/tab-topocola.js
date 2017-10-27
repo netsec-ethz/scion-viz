@@ -14,7 +14,12 @@
  * limitations under the License.
  */
 
-// -------------------------------- General -----------------------------------
+/*
+ * TODO (mwfarb): topology.js and tab-topocola.js are used in more then one
+ * web project and should therefore eventually be moved to a central
+ * maintenance location to avoid duplication.
+ */
+
 var setup = {};
 var colors = {};
 
@@ -38,8 +43,10 @@ var color;
 var d3cola;
 var svg;
 
+// Paths graph
 var default_link_color = "#999999";
 var default_link_opacity = "0.35";
+var pl_w = 20; // path legend width
 var link_dist = 80;
 
 var r = 20;
@@ -212,14 +219,18 @@ function drawTopo() {
 function buildLabels(json_path) {
     var shown = [];
     for (var i = 0; i < json_path.length; i++) {
-        var core = json_path[i].ltype == 'CORE'
-        var isdA = json_path[i].a.split('-')[0]
-        var isdB = json_path[i].b.split('-')[0]
-        if (core) {
+        json_path[i].a ='1234 '
+            var core = json_path[i].ltype == 'CORE'
+        if (!ISDAS.test(json_path[i].a)) {
+            console.error(json_path[i].a + ' is not a valid ISD-AS!')
+        } else if (core) { // only link src can be core
+            var isdA = json_path[i].a.split('-')[0]
             shown.push(((parseInt(isdA) - 1) * 4) + (core ? 0 : 1))
-            shown.push(((parseInt(isdB) - 1) * 4) + (core ? 0 : 1))
+        }
+        if (!ISDAS.test(json_path[i].b)) {
+            console.error(json_path[i].b + ' is not a valid ISD-AS!')
         } else {
-            // only link dest is non-core
+            var isdB = json_path[i].b.split('-')[0]
             shown.push(((parseInt(isdB) - 1) * 4) + (core ? 0 : 1))
         }
     }
@@ -227,22 +238,25 @@ function buildLabels(json_path) {
 }
 
 /*
- * Renders the paths legend and color key.
+ * Renders the paths legend and color key. Labels should not be "shown" in the
+ * legend if they are not in the actual topology being displayed.
  */
 function drawLegend(json_path) {
     var shown = buildLabels(json_path)
-    var pos = 0;
+    var idx = 0;
     var legend = svg.selectAll(".legend").data(color.domain()).enter().append(
-            "g").attr("class", "legend").attr("transform", function(d, i) {
+            "g").attr("class", "legend").attr("transform",
+    // Use our enumerated idx for labels, not all-color index i
+    function(d, i) {
         if (shown.includes(d)) {
-            var render = "translate(0," + pos * 20 + ")";
-            pos++;
+            var render = "translate(0," + idx * (pl_w + 2) + ")";
+            idx++;
             return render;
         } else {
             return "translate(0,0)";
         }
     });
-    legend.append("rect").attr("x", 0).attr("width", 18).attr("height", 18)
+    legend.append("rect").attr("x", 0).attr("width", pl_w).attr("height", pl_w)
             .style("fill", color).style("visibility", function(d) {
                 if (shown.includes(d)) {
                     return "visible";
@@ -250,18 +264,18 @@ function drawLegend(json_path) {
                     return "hidden";
                 }
             })
-    legend.append("text").attr("x", 18 + 5).attr("y", 9).attr("dy", ".35em")
-            .style("text-anchor", "begin").text(function(d) {
-                if (shown.includes(d)) {
-                    if ((d % 2) === 0) {
-                        return 'ISD-' + ((d / 4) + 1) + ' core';
-                    } else {
-                        return 'ISD-' + (((d - 1) / 4) + 1);
-                    }
-                } else {
-                    return null;
-                }
-            });
+    legend.append("text").attr("x", pl_w + 5).attr("y", pl_w / 2).attr("dy",
+            ".35em").style("text-anchor", "begin").text(function(d) {
+        if (shown.includes(d)) {
+            if (d % 2 === 0) {
+                return 'ISD-' + (d / 4 + 1) + ' core';
+            } else {
+                return 'ISD-' + (((d - 1) / 4) + 1);
+            }
+        } else {
+            return null;
+        }
+    });
 }
 
 function addLabel(label) {
