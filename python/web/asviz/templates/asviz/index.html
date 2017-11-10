@@ -56,15 +56,13 @@
 
   <div id="as-viz">
 
-   <div id="as-menu">
-    <div id='as-select'>
-     <form method="GET">
+   <form method="GET">
+
+    <div id="as-menu">
+     <div id='as-select'>
       Source AS: <input type="text" name="src" required
        placeholder="1-1" pattern="^[0-9]*-[0-9]*$" value="{{ src }}"
-       style="width: 60px;"> Destination AS: <input type="text"
-       id="dst" name="dst" placeholder="2-1" pattern="^[0-9]*-[0-9]*$"
-       value="{{ dst }}" style="width: 60px;"> Data: <select
-       id="data" name="data"
+       style="width: 60px;"> Data: <select id="data" name="data"
        onchange="$('#tab').val(activeTab); this.form.submit();">
        <option value="sdapi">sciond socket</option>
        <option value="file">local gen dir</option>
@@ -77,78 +75,85 @@
         pattern="((^|\.)((25[0-5])|(2[0-4]\d)|(1\d\d)|([1-9]?\d))){4}$"
         value="{{ addr }}" style="width: 100px;">
       </div>
-
-     </form>
-    </div>
-    <div id='as-clear'>
-     <form action="{% url 'asviz:index' %}"></form>
-    </div>
-   </div>
-
-   <div id='as-error'></div>
-
-   <div id='as-graphs'>
-
-    <ul class="nav nav-tabs">
-     <li><a data-toggle="tab" href="#as-tab-pathtopo"
-      id="tab-pathtopo">Paths</a></li>
-     <li><a data-toggle="tab" href="#as-tab-astopo" id="tab-astopo">AS
-       Topology</a></li>
-     <li><a data-toggle="tab" href="#as-tab-trc" id="tab-trc">ISD
-       TRC</a></li>
-     <li><a data-toggle="tab" href="#as-tab-crt" id="tab-crt">AS
-       Certificate</a></li>
-    </ul>
-
-    <div class="tab-content">
-     <div id="as-tab-astopo" class="tab-pane fade in">
-      <div id="as-astopo"></div>
-      <div id="as-svrlist">
-       <h2>AS {{ src }} Topology Servers</h2>
-       <p id="as-selection"></p>
-       <table id='server_table'>
-        <thead>
-         <tr>
-          <th id='key'></th>
-          <th id='value'></th>
-         </tr>
-        </thead>
-        <tbody>
-        </tbody>
-       </table>
-      </div>
      </div>
-     <div id="as-tab-pathtopo" class="tab-pane fade in">
-      <div id="as-pathtopo"></div>
-      <div id="as-iflist">
-       <h2>Selected Path Interfaces</h2>
-       {% if path_info %}
-       <p>{{ path_info | safe }}</p>
-       {% endif %}
+    </div>
+
+    <div id='as-error'></div>
+
+    <div id='as-graphs'>
+
+     <ul class="nav nav-tabs">
+      <li><a data-toggle="tab" href="#as-tab-pathtopo"
+       id="tab-pathtopo">Paths</a></li>
+      <li><a data-toggle="tab" href="#as-tab-astopo"
+       id="tab-astopo">AS Topology</a></li>
+      <li><a data-toggle="tab" href="#as-tab-trc" id="tab-trc">ISD
+        TRC</a></li>
+      <li><a data-toggle="tab" href="#as-tab-crt" id="tab-crt">AS
+        Certificate</a></li>
+     </ul>
+
+     <div class="tab-content">
+      <div id="as-tab-astopo" class="tab-pane fade in">
+       <div id="as-astopo"></div>
+       <div id="as-svrlist">
+        <h2>AS {{ src }} Topology Servers</h2>
+        <p id="as-selection"></p>
+        <table id='server_table'>
+         <thead>
+          <tr>
+           <th id='key'></th>
+           <th id='value'></th>
+          </tr>
+         </thead>
+         <tbody>
+         </tbody>
+        </table>
+       </div>
       </div>
-     </div>
-     <div id="as-tab-trc" class="tab-pane fade in">
-      <div id="as-trc">
-       <div id="as-trclist">
-        <h2>ISD ({{ src }}) Trust Root Configuration</h2>
-        {% if json_trc %}
-        <p>{{ json_trc | safe }}</p>
+      <div id="as-tab-pathtopo" class="tab-pane fade in">
+       <div id="as-pathopt">
+        <div>
+         <label for="dst">Destination AS:</label> <input type="text"
+          id="dst" name="dst" placeholder="2-1"
+          pattern="^[0-9]*-[0-9]*$" value="{{ dst }}"
+          style="width: 60px;"> <label for="mp">Max
+          Paths:</label> <input id="mp" name="mp" type="number" min="1"
+          value="{{ mp }}" style="width: 45px;">
+        </div>
+       </div>
+       <div id="as-pathtopo"></div>
+       <div id="as-iflist">
+        <h2>Selected Path Interfaces</h2>
+        {% if path_info %}
+        <p>{{ path_info | safe }}</p>
         {% endif %}
        </div>
       </div>
-     </div>
-     <div id="as-tab-crt" class="tab-pane fade in">
-      <div id="as-crt">
-       <div id="as-crtlist">
-        <h2>AS ({{ src }}) Certificate</h2>
-        {% if json_crt %}
-        <p>{{ json_crt | safe }}</p>
-        {% endif %}
+      <div id="as-tab-trc" class="tab-pane fade in">
+       <div id="as-trc">
+        <div id="as-trclist">
+         <h2>ISD ({{ src }}) Trust Root Configuration</h2>
+         {% if json_trc %}
+         <p>{{ json_trc | safe }}</p>
+         {% endif %}
+        </div>
+       </div>
+      </div>
+      <div id="as-tab-crt" class="tab-pane fade in">
+       <div id="as-crt">
+        <div id="as-crtlist">
+         <h2>AS ({{ src }}) Certificate</h2>
+         {% if json_crt %}
+         <p>{{ json_crt | safe }}</p>
+         {% endif %}
+        </div>
        </div>
       </div>
      </div>
     </div>
-   </div>
+
+   </form>
 
   </div>
  </div>

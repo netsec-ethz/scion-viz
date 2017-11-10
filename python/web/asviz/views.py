@@ -23,7 +23,7 @@ from django.shortcuts import render
 
 import lib.app.sciond as lib_sciond
 from as_viewer.settings import SCION_ROOT
-from lib.app.sciond import SCIONDConnectionError, SCIONDResponseError
+from lib.app.sciond import SCIONDConnectionError, SCIONDResponseError, PathRequestFlags
 from lib.crypto.certificate_chain import get_cert_chain_file_path
 from lib.crypto.trc import get_trc_file_path
 from lib.defines import (
@@ -757,8 +757,9 @@ def index(request):
     addr = set_param(request, 'addr', '')
     src = set_param(request, 'src', '')
     dst = set_param(request, 'dst', '')
+    mp = set_param(request, 'mp', '5')
     if (src == '' and dst == ''):
-        return fmt_err(request, '', src, dst, addr, data, tab)
+        return fmt_err(request, '', src, dst, mp, addr, data, tab)
     s_isd_as = ISD_AS(src)
     d_isd_as = ISD_AS(dst)
     csegs = dsegs = usegs = []
@@ -775,7 +776,7 @@ def index(request):
                 logging.info("Testing sciond at %s" % sock_file)
                 lib_sciond.get_as_info(connector=connector[s_isd_as])
             except (SCIONDResponseError) as err:
-                return fmt_err(request, str(err), src, dst, addr, data, tab)
+                return fmt_err(request, str(err), src, dst, mp, addr, data, tab)
             except (SCIONDConnectionError, FileNotFoundError) as err:
                 logging.warning("%s: %s" % (err.__class__.__name__, err))
                 # need to launch sciond, wait for uptime
@@ -784,9 +785,10 @@ def index(request):
             json_as_topo = json.dumps(  # AS topo
                 get_json_as_topology_sciond(connector[s_isd_as], paths))
             if (dst != ''):  # PATHS
+                flags = lib_sciond.PathRequestFlags(flush=False, sibra=False)
                 try:
-                    paths = lib_sciond.get_paths(
-                        d_isd_as, connector=connector[s_isd_as])
+                    paths = lib_sciond.get_paths(d_isd_as, max_paths=int(
+                        mp), flags=flags, connector=connector[s_isd_as])
                 except (SCIONDResponseError, SCIONDConnectionError) as err:
                     logging.error("%s: %s" % (err.__class__.__name__, err))
                     errmsg = str(err)
@@ -810,7 +812,7 @@ def index(request):
         json_seg_topo = json.dumps(get_json_all_segments(csegs, usegs, dsegs))
         json_paths = json.dumps(get_json_paths(paths))
     except (SCIONBaseError) as err:
-        return fmt_err(request, str(err), src, dst, addr, data, tab)
+        return fmt_err(request, str(err), src, dst, mp, addr, data, tab)
     return render(request, 'asviz/index.html', {
         'err': errmsg,
         'json_trc': json_trc,
@@ -820,11 +822,11 @@ def index(request):
         'json_seg_topo': json_seg_topo,
         'json_as_topo': json_as_topo,
         'path_info': path_info,
-        'src': src, 'dst': dst, 'addr': addr, 'data': data, 'tab': tab,
+        'src': src, 'dst': dst, 'mp': mp, 'addr': addr, 'data': data, 'tab': tab,
     })
 
 
-def fmt_err(request, err,  src,  dst, addr, data,  tab):
+def fmt_err(request, err, src, dst, mp, addr, data,  tab):
     '''
     Format error message with to return with null response.
     '''
@@ -838,5 +840,5 @@ def fmt_err(request, err,  src,  dst, addr, data,  tab):
         'json_seg_topo': '{}',
         'json_as_topo': '{"links": [], "nodes": []}',
         'path_info': '',
-        'src': src, 'dst': dst, 'addr': addr, 'data': data, 'tab': tab,
+        'src': src, 'dst': dst, 'mp': mp, 'addr': addr, 'data': data, 'tab': tab,
     })

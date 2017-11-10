@@ -26,7 +26,7 @@ import time
 from os.path import dirname as dir
 
 import lib.app.sciond as lib_sciond
-from lib.app.sciond import SCIONDConnectionError, SCIONDResponseError
+from lib.app.sciond import SCIONDConnectionError, SCIONDResponseError, PathRequestFlags
 from lib.crypto.certificate_chain import get_cert_chain_file_path
 from lib.crypto.trc import get_trc_file_path
 from lib.defines import (
@@ -201,8 +201,10 @@ def print_paths(s_isd_as, d_isd_as, connector):
     Print AS announced paths data from lib.app.sciond.
     :param paths: Array of PathInfo objects.
     '''
+    flags = lib_sciond.PathRequestFlags(flush=False, sibra=False)
     try:
-        paths = lib_sciond.get_paths(d_isd_as, connector=connector[s_isd_as])
+        paths = lib_sciond.get_paths(
+            d_isd_as, flags=flags, connector=connector[s_isd_as])
     except (SCIONDResponseError) as err:
         logging.error("%s: %s" % (err.__class__.__name__, err))
         return
