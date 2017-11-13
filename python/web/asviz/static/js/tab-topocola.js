@@ -44,7 +44,7 @@ var possible_colors = {
 // Paths graph
 var default_link_color = "#999999";
 var default_link_opacity = "0.35";
-var p_link_dist = 80; // paths link distance
+var p_link_dist = 70; // paths link distance
 var p_r = 20; // path node radius
 var pt_w = 90; // text node rect width
 var pt_h = 35; // text node rect height
@@ -56,33 +56,52 @@ var circlesg;
 var linesg;
 
 /*
- * Post-rendering method to add labels to paths graph.
+ * Post-rendering method to add labels to paths graph. The position of these
+ * text anchors should change with the relative number of as nodes to be
+ * increasingly farther apart and into the bottom corners to encourage complex
+ * paths to spread out for better viewing.
  */
 function topoSetup(msg, width, height) {
-
     if (graphPath == undefined) {
         console.error("No graphPath to add setup!!");
         return;
     }
-
     for (key in msg) {
         setup[key] = msg[key];
     }
 
-    // attempt to fix source and destination labels at bottom of graph
+    // use smallest path to find min links for basis of anchors
+    var paths = resPath.if_lists;
+    var min_interfaces = paths[0].length;
+    for (path in resPath.if_lists) {
+        if (paths[path].length < min_interfaces) {
+            min_interfaces = paths[path].length;
+        }
+    }
+    var min_link = (min_interfaces / 2) - 1;
+    // min placement from center for smallest topology (s=src, d=dst)
+    var min_sx = (width / 2) - (pt_w / 2);
+    var min_dx = (width / 2) + (pt_w / 2);
+    var min_y = (height / 2) + (pt_h / 2) + p_link_dist;
+    // max placement from center for largest topology (max bounds)
+    var max_sx = (pt_w / 2);
+    var max_dx = width - (pt_w / 2);
+    var max_y = height - (pt_h / 2);
+    // optimal placement to center based on number of links
+    var opt_sx = min_sx - (min_link / 2 * p_link_dist / 2);
+    var opt_dx = min_dx + (min_link / 2 * p_link_dist / 2);
+    var opt_y = min_y + (min_link / 2 * p_link_dist / 2);
+    // choose optimal placement, else do not exceed max bounds
     if (msg.hasOwnProperty("destination") && !destination_added) {
-        addFixedLabel("destination", (width * .6), (height * .85), false);
+        addFixedLabel("destination", (opt_dx < max_dx ? opt_dx : max_dx),
+                (opt_y < max_y ? opt_y : max_y), false);
         destination_added = true;
     }
     if (msg.hasOwnProperty("source") && !source_added) {
-        addFixedLabel("source", (width * .4), (height * .85), true);
+        addFixedLabel("source", (opt_sx > max_sx ? opt_sx : max_sx),
+                (opt_y < max_y ? opt_y : max_y), true);
         source_added = true;
     }
-
-    // TODO (mwfarb): the position these text anchors should change with the
-    // relative number of as nodes to be increasingly farther apart
-    // and into the bottom corners to encourage complex paths to spread out for
-    // better viewing.
 }
 
 /*
