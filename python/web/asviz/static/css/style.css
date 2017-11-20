@@ -61,17 +61,22 @@ a:hover {
  position: relative;
 }
 
-#as-tabs-header {
-
+#as-pathtopo, #as-iflist, #as-astopo, #as-svrlist, #as-pathopt {
+ position: absolute;
 }
 
-#as-pathtopo, #as-iflist, #as-astopo, #as-svrlist {
- position: absolute;
+#as-pathopt {
+ font-size: 12px;
+ width: 900px;
+ height: 50px;
+ padding: 5px;
+ border: 1px solid #ccc;
 }
 
 #as-pathtopo {
  width: 600px;
- height: 450px;
+ height: 400px;
+ top: 90px;
  border: 1px solid #ccc;
 }
 
@@ -83,14 +88,15 @@ a:hover {
 
 #as-iflist {
  width: 300px;
- height: 450px;
+ height: 400px;
+ top: 90px;
  left: 600px;
  padding-left: 10px;
  border: 1px solid #ccc;
 }
 
 #as-svrlist {
- width: 300px;
+ width: 290px;
  height: 450px;
  left: 600px;
  padding-left: 10px;
@@ -272,5 +278,3 @@ ul.tree li.open > a:not(:last-child):before {
  color: #000;
  font-weight: bold;
 }
-
-

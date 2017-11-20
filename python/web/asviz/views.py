@@ -752,20 +752,23 @@ def index(request):
     Validates parameters, request scion data, returns formatted response.
     :param request: HTML request object containing url parameters.
     '''
-    tab = set_param(request, 'tab', 'tab-pathtopo')
-    data = set_param(request, 'data', 'sdapi')
-    addr = set_param(request, 'addr', '')
-    src = set_param(request, 'src', '')
-    dst = set_param(request, 'dst', '')
-    if (src == '' and dst == ''):
-        return fmt_err(request, '', src, dst, addr, data, tab)
-    s_isd_as = ISD_AS(src)
-    d_isd_as = ISD_AS(dst)
+    p = {}  # return param dictionary
+    p['tab'] = set_param(request, 'tab', 'tab-pathtopo')
+    p['data'] = set_param(request, 'data', 'sdapi')
+    p['addr'] = set_param(request, 'addr', '')
+    p['src'] = set_param(request, 'src', '')
+    p['dst'] = set_param(request, 'dst', '')
+    p['mp'] = set_param(request, 'mp', '5')
+    p['err'] = ''
+    if (p['src'] == '' and p['dst'] == ''):
+        return fmt_err(request, p)
+    s_isd_as = ISD_AS(p['src'])
+    d_isd_as = ISD_AS(p['dst'])
     csegs = dsegs = usegs = []
-    paths = errmsg = ''
+    paths = ''
     logging.info("Requesting sciond data from %s to %s" % (s_isd_as, d_isd_as))
     try:
-        if (data == 'sdapi'):
+        if (p['data'] == 'sdapi'):
             sock_file = os.path.join(
                 SCIOND_API_SOCKDIR, "sd%s.sock" % s_isd_as)
             connector[s_isd_as] = lib_sciond.init(sock_file)
@@ -775,68 +778,59 @@ def index(request):
                 logging.info("Testing sciond at %s" % sock_file)
                 lib_sciond.get_as_info(connector=connector[s_isd_as])
             except (SCIONDResponseError) as err:
-                return fmt_err(request, str(err), src, dst, addr, data, tab)
+                p['err'] = "%s: %s" % (err.__class__.__name__, err)
+                return fmt_err(request, p)
             except (SCIONDConnectionError, FileNotFoundError) as err:
                 logging.warning("%s: %s" % (err.__class__.__name__, err))
                 # need to launch sciond, wait for uptime
-                launch_sciond(sock_file, addr, s_isd_as)
+                launch_sciond(sock_file, p['addr'], s_isd_as)
 
-            json_as_topo = json.dumps(  # AS topo
+            p['json_as_topo'] = json.dumps(  # AS topo
                 get_json_as_topology_sciond(connector[s_isd_as], paths))
-            if (dst != ''):  # PATHS
+            if (p['dst'] != ''):  # PATHS
+                flags = lib_sciond.PathRequestFlags(flush=False, sibra=False)
                 try:
-                    paths = lib_sciond.get_paths(
-                        d_isd_as, connector=connector[s_isd_as])
+                    paths = lib_sciond.get_paths(d_isd_as, max_paths=int(
+                        p['mp']), flags=flags, connector=connector[s_isd_as])
                 except (SCIONDResponseError, SCIONDConnectionError) as err:
                     logging.error("%s: %s" % (err.__class__.__name__, err))
-                    errmsg = str(err)
-            json_trc = ("TRC information for sciond not yet implemented.")
-            json_crt = (
+                    p['err'] = str(err)
+            p['json_trc'] = ("TRC information for sciond not yet implemented.")
+            p['json_crt'] = (
                 "Certificate information for sciond not yet implemented.")
-        elif (data == 'file'):
+        elif (p['data'] == 'file'):
             conf_dir = "%s/%s/ISD%s/AS%s/endhost" % (
                 SCION_ROOT, GEN_PATH, s_isd_as._isd, s_isd_as._as)
             t = Topology.from_file(os.path.join(conf_dir, TOPO_FILE))
             topo = organize_topo(t)
-            json_as_topo = json.dumps(get_json_as_topology(t, topo))
-            json_trc = html_jsonfile(
+            p['json_as_topo'] = json.dumps(get_json_as_topology(t, topo))
+            p['json_trc'] = html_jsonfile(
                 get_trc_file_path(conf_dir, s_isd_as._isd, 0))
-            json_crt = html_jsonfile(
+            p['json_crt'] = html_jsonfile(
                 get_cert_chain_file_path(conf_dir, s_isd_as, 0))
 
-        path_info = get_as_view_html(paths, csegs, usegs, dsegs)
-        json_path_topo = json.dumps(
+        p['path_info'] = get_as_view_html(paths, csegs, usegs, dsegs)
+        p['json_path_topo'] = json.dumps(
             get_json_path_segs(paths, csegs, usegs, dsegs))
-        json_seg_topo = json.dumps(get_json_all_segments(csegs, usegs, dsegs))
-        json_paths = json.dumps(get_json_paths(paths))
+        p['json_seg_topo'] = json.dumps(
+            get_json_all_segments(csegs, usegs, dsegs))
+        p['json_paths'] = json.dumps(get_json_paths(paths))
     except (SCIONBaseError) as err:
-        return fmt_err(request, str(err), src, dst, addr, data, tab)
-    return render(request, 'asviz/index.html', {
-        'err': errmsg,
-        'json_trc': json_trc,
-        'json_crt': json_crt,
-        'json_paths': json_paths,
-        'json_path_topo': json_path_topo,
-        'json_seg_topo': json_seg_topo,
-        'json_as_topo': json_as_topo,
-        'path_info': path_info,
-        'src': src, 'dst': dst, 'addr': addr, 'data': data, 'tab': tab,
-    })
+        p['err'] = "%s: %s" % (err.__class__.__name__, err)
+        return fmt_err(request, p)
+    return render(request, 'asviz/index.html', p)
 
 
-def fmt_err(request, err,  src,  dst, addr, data,  tab):
+def fmt_err(request, params):
     '''
     Format error message with to return with null response.
     '''
-    logging.error("%s: %s" % (err.__class__.__name__, err))
-    return render(request, 'asviz/index.html', {
-        'err': err,
-        'json_trc': '',
-        'json_crt': '',
-        'json_paths': '{}',
-        'json_path_topo': '{}',
-        'json_seg_topo': '{}',
-        'json_as_topo': '{"links": [], "nodes": []}',
-        'path_info': '',
-        'src': src, 'dst': dst, 'addr': addr, 'data': data, 'tab': tab,
-    })
+    logging.error(params['err'])
+    params['json_trc'] = ''
+    params['json_crt'] = ''
+    params['json_paths'] = '{}'
+    params['json_path_topo'] = '{}'
+    params['json_seg_topo'] = '{}'
+    params['json_as_topo'] = '{"links": [], "nodes": []}'
+    params['path_info'] = ''
+    return render(request, 'asviz/index.html', params)
