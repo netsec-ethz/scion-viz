@@ -14,6 +14,12 @@
  * limitations under the License.
  */
 
+/*
+ * TODO (mwfarb): topology.js and tab-topocola.js are used in more then one
+ * web project and should therefore eventually be moved to a central
+ * maintenance location to avoid duplication.
+ */
+
 var graphPath;
 var colorPath;
 var colaPath;
@@ -38,7 +44,7 @@ var possible_colors = {
 // Paths graph
 var default_link_color = "#999999";
 var default_link_opacity = "0.35";
-var p_link_dist = 80; // paths link distance
+var p_link_dist = 70; // paths link distance
 var p_r = 20; // path node radius
 var pt_w = 90; // text node rect width
 var pt_h = 35; // text node rect height
@@ -50,33 +56,52 @@ var circlesg;
 var linesg;
 
 /*
- * Post-rendering method to add labels to paths graph.
+ * Post-rendering method to add labels to paths graph. The position of these
+ * text anchors should change with the relative number of as nodes to be
+ * increasingly farther apart and into the bottom corners to encourage complex
+ * paths to spread out for better viewing.
  */
 function topoSetup(msg, width, height) {
-
     if (graphPath == undefined) {
         console.error("No graphPath to add setup!!");
         return;
     }
-
     for (key in msg) {
         setup[key] = msg[key];
     }
 
-    // attempt to fix source and destination labels at bottom of graph
+    // use smallest path to find min links for basis of anchors
+    var paths = resPath.if_lists;
+    var min_interfaces = paths[0].length;
+    for (path in resPath.if_lists) {
+        if (paths[path].length < min_interfaces) {
+            min_interfaces = paths[path].length;
+        }
+    }
+    var min_link = (min_interfaces / 2) - 1;
+    // min placement from center for smallest topology (s=src, d=dst)
+    var min_sx = (width / 2) - (pt_w / 2);
+    var min_dx = (width / 2) + (pt_w / 2);
+    var min_y = (height / 2) + (pt_h / 2) + p_link_dist;
+    // max placement from center for largest topology (max bounds)
+    var max_sx = (pt_w / 2);
+    var max_dx = width - (pt_w / 2);
+    var max_y = height - (pt_h / 2);
+    // optimal placement to center based on number of links
+    var opt_sx = min_sx - (min_link / 2 * p_link_dist / 2);
+    var opt_dx = min_dx + (min_link / 2 * p_link_dist / 2);
+    var opt_y = min_y + (min_link / 2 * p_link_dist / 2);
+    // choose optimal placement, else do not exceed max bounds
     if (msg.hasOwnProperty("destination") && !destination_added) {
-        addFixedLabel("destination", (width * .6), (height * .85), false);
+        addFixedLabel("destination", (opt_dx < max_dx ? opt_dx : max_dx),
+                (opt_y < max_y ? opt_y : max_y), false);
         destination_added = true;
     }
     if (msg.hasOwnProperty("source") && !source_added) {
-        addFixedLabel("source", (width * .4), (height * .85), true);
+        addFixedLabel("source", (opt_sx > max_sx ? opt_sx : max_sx),
+                (opt_y < max_y ? opt_y : max_y), true);
         source_added = true;
     }
-
-    // TODO (mwfarb): the position these text anchors should change with the
-    // relative number of as nodes to be increasingly farther apart
-    // and into the bottom corners to encourage complex paths to spread out for
-    // better viewing.
 }
 
 /*
@@ -178,7 +203,7 @@ function drawTopology(div_id, original_json_data, width, height) {
     circlesg = svgPath.append("g");
 
     update();
-    drawLegend();
+    drawLegend(original_json_data);
     topoColor({
         "source" : "none",
         "destination" : "none",
@@ -266,7 +291,6 @@ function update() {
     });
     var markerPath = pathsg.selectAll("path.marker").data(markerLinks)
     markerPath.enter().append("path").attr("class", function(d) {
-        console.log("marker " + d.type);
         return "marker " + d.type;
     }).attr("marker-end", function(d) {
         return "url(#" + d.color + ")";
@@ -363,33 +387,65 @@ function transform(d) {
 }
 
 /*
- * Renders the paths legend and color key.
+ * Build legend labels based only on visible nodes.
  */
-function drawLegend(core) {
-    // Legend
-    var legend = svgPath.selectAll(".legend").data(colorPath.domain()).enter()
-            .append("g").attr("class", "legend").attr(
-                    "transform",
-                    function(d, i) {
-                        return "translate(0," + (core ? i : (i - 1) / 2) * pl_w
-                                + ")";
-                    });
+function buildLabels(json_path) {
+    var shown = [];
+    for (var i = 0; i < json_path.length; i++) {
+        var core = json_path[i].ltype == 'CORE'
+        if (!ISDAS.test(json_path[i].a)) {
+            console.error(json_path[i].a + ' is not a valid ISD-AS!')
+        } else if (core) { // only link src can be core
+            var isdA = json_path[i].a.split('-')[0]
+            shown.push(((parseInt(isdA) - 1) * 4) + (core ? 0 : 1))
+        }
+        if (!ISDAS.test(json_path[i].b)) {
+            console.error(json_path[i].b + ' is not a valid ISD-AS!')
+        } else {
+            var isdB = json_path[i].b.split('-')[0]
+            shown.push(((parseInt(isdB) - 1) * 4) + (core ? 0 : 1))
+        }
+    }
+    return shown;
+}
 
+/*
+ * Renders the paths legend and color key. Labels should not be "shown" in the
+ * legend if they are not in the actual topology being displayed.
+ */
+function drawLegend(json_path) {
+    var shown = buildLabels(json_path)
+    var idx = 0;
+    var legend = svgPath.selectAll(".legend").data(colorPath.domain()).enter()
+            .append("g").attr("class", "legend").attr("transform",
+            // Use our enumerated idx for labels, not all-color index i
+            function(d, i) {
+                if (shown.includes(d)) {
+                    var render = "translate(0," + idx * (pl_w + 2) + ")";
+                    idx++;
+                    return render;
+                } else {
+                    return "translate(0,0)";
+                }
+            });
     legend.append("rect").attr("x", 0).attr("width", pl_w).attr("height", pl_w)
             .style("fill", colorPath).style("visibility", function(d) {
-                if ((d % 2) === 0) {
-                    return core ? "visible" : "hidden";
-                } else {
+                if (shown.includes(d)) {
                     return "visible";
+                } else {
+                    return "hidden";
                 }
             })
-
     legend.append("text").attr("x", pl_w + 5).attr("y", pl_w / 2).attr("dy",
             ".35em").style("text-anchor", "begin").text(function(d) {
-        if ((d % 2) === 0) {
-            return core ? 'ISD-' + ((d / 4) + 1) + ' core' : null;
+        if (shown.includes(d)) {
+            if (d % 2 === 0) {
+                return 'ISD-' + (d / 4 + 1) + ' core';
+            } else {
+                return 'ISD-' + (((d - 1) / 4) + 1);
+            }
         } else {
-            return 'ISD-' + (((d - 1) / 4) + 1);
+            return null;
         }
     });
 }
@@ -465,13 +521,16 @@ function drawPath(res, path, color) {
         return !link.path;
     });
     for (var i = 0; i < path_ids.length - 1; i++) {
-        graphPath.links.push({
-            "color" : color,
-            "path" : true,
-            "source" : graphPath["ids"][path_ids[i]],
-            "target" : graphPath["ids"][path_ids[i + 1]],
-            "type" : "PARENT"
-        });
+        // prevent src == dst links from being formed
+        if (path_ids[i] != path_ids[i + 1]) {
+            graphPath.links.push({
+                "color" : color,
+                "path" : true,
+                "source" : graphPath["ids"][path_ids[i]],
+                "target" : graphPath["ids"][path_ids[i + 1]],
+                "type" : "PARENT"
+            });
+        }
     }
     update();
 }
