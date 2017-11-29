@@ -47,7 +47,7 @@
   <div id="info">
    <ul>
     <li><a href='http://scion-architecture.net'>SCION Website</a></li>
-    <li><a href='http://github.com/netsec-ethz/scion'>SCION</a> on
+    <li><a href='http://github.com/scionproto/scion'>SCION</a> on
      Github</li>
     <li><a href='http://github.com/netsec-ethz/scion-viz'>SCION
       Visualizations</a> on Github</li>
@@ -201,7 +201,7 @@
         // load path topology
         var width = $("#as-pathtopo").width();
         var height = $("#as-pathtopo").height();
-        drawTopology("as-pathtopo", jTopo, width, height);
+        drawTopology("as-pathtopo", jTopo, resSegs, width, height);
         // add endpoint labels
         topoSetup({
             "source" : '{{ src }}',

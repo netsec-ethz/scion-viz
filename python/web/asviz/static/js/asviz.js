@@ -70,24 +70,33 @@ function setupPathSelection() {
     $('li[seg-type="UP"]').children().css("color", colorSegUp);
     $('li[seg-type="PATH"]').children().css("color", colorPaths);
 
-    // add path graph selection and color
-    $("li").click(function() {
+    // handle path graph-only selection and color
+    $("#as-iflist > ul > li").click(function() {
         var type = $(this).attr("seg-type");
-        var num = parseInt($(this).attr("seg-num"));
+        var idx = parseInt($(this).attr("seg-num"));
         if (this.className == "open") {
-            console.log(type + num + ' opened');
+            console.log(type + idx + ' opened');
+            var num = idx + 1;
             if (type == 'CORE') {
-                drawPath(resCore, num, colorSegCore);
+                drawPath(resCore, idx, colorSegCore);
+                drawTitle(type + ' SEGMENT ' + num, colorSegCore,
+                        resCore.if_lists[idx].expTime);
             } else if (type == 'DOWN') {
-                drawPath(resDown, num, colorSegDown);
+                drawPath(resDown, idx, colorSegDown);
+                drawTitle(type + ' SEGMENT ' + num, colorSegDown,
+                        resDown.if_lists[idx].expTime);
             } else if (type == 'UP') {
-                drawPath(resUp, num, colorSegUp);
+                drawPath(resUp, idx, colorSegUp);
+                drawTitle(type + ' SEGMENT ' + num, colorSegUp,
+                        resUp.if_lists[idx].expTime);
             } else if (type == 'PATH') {
-                drawPath(resPath, num, colorPaths);
+                drawPath(resPath, idx, colorPaths);
+                drawTitle(type + ' ' + num, colorPaths);
             }
         } else {
-            console.log(type + num + ' closed');
+            console.log(type + idx + ' closed');
             restorePath();
+            removeTitle();
         }
     });
 }

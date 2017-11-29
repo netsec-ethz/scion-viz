@@ -33,11 +33,13 @@ from lib.defines import (
 )
 from lib.errors import SCIONBaseError
 from lib.packet.host_addr import HostAddrIPv4
-from lib.packet.opaque_field import HopOpaqueField, InfoOpaqueField
 from lib.packet.scion_addr import ISD_AS
 from lib.topology import Topology
-from lib.types import ServiceType
-
+from lib.types import (
+    PathSegmentType as PST,
+    ServiceType,
+)
+from lib.util import iso_timestamp
 
 # topology class definitions
 topo_servers = ['BEACON', 'CERTIFICATE', 'PATH', 'SIBRA']
@@ -83,7 +85,7 @@ def html_paths(s, paths):
         list_add(s, "MTU: %s" % path.p.path.mtu)
         list_add(s, "IPV4: %s" % HostAddrIPv4(path.p.hostInfo.addrs.ipv4))
         list_add(s, "Port: %s" % path.p.hostInfo.port)
-        list_add(s, "Interfaces Len: %s" % len(path.p.path.interfaces))
+        list_add(s, "Hops: %i" % (len(path.p.path.interfaces) / 2))
         # enumerate path interfaces
         for interface in path.p.path.interfaces:
             isd_as = ISD_AS(interface.isdas)
@@ -121,13 +123,17 @@ def get_json_segments(segs):
     cores = []
     for seg in segs:
         core = []
-        for asms in seg.p.asms:
+        for interface in seg.p.interfaces:
             core.append({
-                "ISD": ISD_AS(asms.isdas)._isd,
-                "AS": ISD_AS(asms.isdas)._as,
-                "IFID": 0,
+                "ISD": ISD_AS(interface.isdas)._isd,
+                "AS": ISD_AS(interface.isdas)._as,
+                "IFID": interface.ifID,
             })
-        cores.append(core)
+        cores.append({
+            "interfaces": core,
+            "timestamp": seg.p.timestamp,
+            "expTime": seg.p.expTime,
+        })
     path = {}
     path["if_lists"] = cores
     return path
@@ -150,7 +156,9 @@ def get_json_paths(paths):
     Formats all paths to json for path graph.
     '''
     cores = []
+    logging.info("\n-------- SCIOND: Paths")
     for path in paths:
+        logging.debug(path.__dict__)
         core = []
         for interface in path.p.path.interfaces:
             core.append({
@@ -158,7 +166,9 @@ def get_json_paths(paths):
                 "AS": ISD_AS(interface.isdas)._as,
                 "IFID": interface.ifID,
             })
-        cores.append(core)
+        cores.append({
+            "interfaces": core,
+        })
     path = {}
     path["if_lists"] = cores
     logging.debug(path)
@@ -203,7 +213,7 @@ def get_json_as_topology_sciond(connector, paths):
         logging.info("\n-------- SCIOND: AS Info")
         t = lib_sciond.get_as_info(connector=connector)
         for v in t:
-            logging.info(v.__dict__)
+            logging.debug(v.__dict__)
             isd_as = str(ISD_AS(v.p.isdas))
             nodes.append(get_root_as_node(isd_as, v.p.isCore, v.p.mtu))
 
@@ -211,7 +221,7 @@ def get_json_as_topology_sciond(connector, paths):
         if_idx = 0
         i = lib_sciond.get_if_info(connector=connector)
         for key, v in i.items():
-            logging.info('%s: %s' % (key, v.__dict__))
+            logging.debug('%s: %s' % (key, v.__dict__))
             addr = v.p.hostInfo.addrs.ipv4
             port = v.p.hostInfo.port
             label = '%s-%s' % (ServiceType.BR, if_idx + 1)
@@ -243,7 +253,7 @@ def get_json_as_topology_sciond(connector, paths):
         v = lib_sciond.get_service_info(
             srvs, connector=connector)
         for key in v:
-            logging.info(v[key].__dict__)
+            logging.debug(v[key].__dict__)
             sidx = 0
             for hi in v[key].p.hostInfos:
                 addr = hi.addrs.ipv4
@@ -511,11 +521,12 @@ def add_seg_links(segs, data, links, ltype):
     Add standard links to paths graph
     '''
     for s in segs:
-        for x in range(1, len(s.p.asms)):
-            p = ISD_AS(s.p.asms[x - 1].isdas)
-            n = ISD_AS(s.p.asms[x].isdas)
+        for x in range(1, len(s.p.interfaces)):
+            p = ISD_AS(s.p.interfaces[x - 1].isdas)
+            n = ISD_AS(s.p.interfaces[x].isdas)
             data.append({"a": str(p), "b": str(n), "ltype": ltype})
-            link = "%s,%s" % (s.p.asms[x - 1].isdas, s.p.asms[x].isdas)
+            link = "%s,%s" % (
+                s.p.interfaces[x - 1].isdas, s.p.interfaces[x].isdas)
             if link not in links:
                 links.append(link)
 
@@ -530,7 +541,10 @@ def add_nonseg_links(paths, data, links, ltype):
             n = ISD_AS(path.p.path.interfaces[x].isdas)
             link = "%s,%s" % (path.p.path.interfaces[x - 1].isdas,
                               path.p.path.interfaces[x].isdas)
-            if link not in links:
+            link_r = "%s,%s" % (path.p.path.interfaces[x].isdas,
+                                path.p.path.interfaces[x - 1].isdas)
+            # confirm either direction is not a duplicate
+            if link not in links and link_r not in links:
                 links.append(link)
                 data.append({"a": str(p), "b": str(n), "ltype": ltype})
 
@@ -544,63 +558,25 @@ def get_json_path_segs(paths, csegs, usegs, dsegs):
     add_seg_links(csegs, data, links, "CORE")
     add_seg_links(usegs, data, links, "PARENT")
     add_seg_links(dsegs, data, links, "PARENT")
-    add_nonseg_links(paths, data, links, "CHILD")
+    add_nonseg_links(paths, data, links, "PEER")
     logging.debug(data)
     return data
 
 
 def p_segment(s, seg, idx, name, color):
     '''
-    Add segment to hmtl list
+    Add segment to html list
     '''
     list_add_head(s, idx, name, color)
     indent_open(s)
-    list_add(s, "Expiration Time: %s" % seg._min_exp)
-    p = seg.p
-    # InfoOpaqueField
-    list_add(s, "%s" % InfoOpaqueField(p.info))
-    # PathSegment
-    list_add(s, "Interface ID: %s" % p.ifID)
-    list_add(s, "SIBRA Ext Up: %s" % p.exts.sibra.up)
-    asmsidx = 0
-    for asms in p.asms:
-        p_as_marking(s, asms, asmsidx)
-        asmsidx += 1
-    indent_close(s)
-
-
-def p_as_marking(s, asms, asmsidx):
-    '''
-    Add AS Marking to list
-    '''
-    # ASMarking
-    list_add(s, "AS Marking Block %s" % (asmsidx + 1))
-    indent_open(s)
-    list_add(s, "AS: %s" % ISD_AS(asms.isdas))
-    list_add(s, "TRC: v%s" % asms.trcVer)
-    list_add(s, "Cert: v%s" % asms.certVer)
-    list_add(s, "Interface ID Size: %s" % asms.ifIDSize)
-    list_add(s, "Hashtree Root: %s" % asms.hashTreeRoot.hex())
-    list_add(s, "Signature: %s" % asms.sig.hex())
-    list_add(s, "AS MTU: %s" % asms.mtu)
-    pcbmsidx = 0
-    for pcbms in asms.pcbms:
-        p_pcb_marking(s, pcbms, pcbmsidx)
-        pcbmsidx += 1
-    indent_close(s)
-
-
-def p_pcb_marking(s, pcbms, pcbmsidx):
-    '''
-    Add html PCB to list
-    '''
-    # PCBMarking
-    list_add(s, "PCB Marking Block %s" % (pcbmsidx + 1))
-    indent_open(s)
-    list_add(s, "In: %s (%s) mtu = %s" %
-             (ISD_AS(pcbms.inIA), pcbms.inIF, pcbms.inMTU))
-    list_add(s, "Out: %s (%s)" % (ISD_AS(pcbms.outIA), pcbms.outIF))
-    list_add(s, "%s" % HopOpaqueField(pcbms.hof))
+    list_add(s, "Creation: %s" % iso_timestamp(seg.p.timestamp))
+    list_add(s, "Expiration: %s" % iso_timestamp(seg.p.expTime))
+    list_add(s, "Hops: %i" % (len(seg.p.interfaces) / 2))
+    # enumerate path interfaces
+    for interface in seg.p.interfaces:
+        isd_as = ISD_AS(interface.isdas)
+        link = interface.ifID
+        list_add(s, "%s-%s (%s)" % (isd_as._isd, isd_as._as, link))
     indent_close(s)
 
 
@@ -634,7 +610,7 @@ def list_attr_add(s, name, idx):
 
 def list_add_head(s, idx, name, color):
     '''
-    Add html segemnt header to string
+    Add html segment header to string
     '''
     list_attr_add(s, name, idx)
     s.append("<a href='#' >%s " % name)
@@ -784,16 +760,31 @@ def index(request):
                 # need to launch sciond, wait for uptime
                 launch_sciond(sock_file, p['addr'], s_isd_as)
 
-            p['json_as_topo'] = json.dumps(  # AS topo
-                get_json_as_topology_sciond(connector[s_isd_as], paths))
             if (p['dst'] != ''):  # PATHS
-                flags = lib_sciond.PathRequestFlags(flush=False, sibra=False)
                 try:
+                    # get paths and keep segments
+                    flags = lib_sciond.PathRequestFlags(flush=False,
+                                                        sibra=False)
                     paths = lib_sciond.get_paths(d_isd_as, max_paths=int(
                         p['mp']), flags=flags, connector=connector[s_isd_as])
-                except (SCIONDResponseError, SCIONDConnectionError) as err:
+                    csegs = lib_sciond.get_segtype_hops(
+                        PST.CORE, connector=connector[s_isd_as])
+                    dsegs = lib_sciond.get_segtype_hops(
+                        PST.DOWN, connector=connector[s_isd_as])
+                    usegs = lib_sciond.get_segtype_hops(
+                        PST.UP, connector=connector[s_isd_as])
+                    # refresh old segments for next call
+                    flags = lib_sciond.PathRequestFlags(flush=True,
+                                                        sibra=False)
+                    lib_sciond.get_paths(d_isd_as, max_paths=int(
+                        p['mp']), flags=flags, connector=connector[s_isd_as])
+                except (SCIONDResponseError, SCIONDConnectionError,
+                        AttributeError) as err:
+                    # AttributeError handles backward-compatability
                     logging.error("%s: %s" % (err.__class__.__name__, err))
                     p['err'] = str(err)
+            p['json_as_topo'] = json.dumps(
+                get_json_as_topology_sciond(connector[s_isd_as], paths))
             p['json_trc'] = ("TRC information for sciond not yet implemented.")
             p['json_crt'] = (
                 "Certificate information for sciond not yet implemented.")

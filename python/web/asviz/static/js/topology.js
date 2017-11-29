@@ -140,6 +140,24 @@ function addNodeFromLink(graph, name, type, node) {
 }
 
 /*
+ * Modifies existing path topology with more accurate segments, but only when
+ * available.
+ */
+function updateGraphWithSegments(graph, segs) {
+    for (var i = 0; i < segs.length; i++) {
+        first_isdas = segs[i].interfaces[0].ISD + "-"
+                + segs[i].interfaces[0].AS;
+        for (var j = 0; j < graph.nodes.length; j++) {
+            var name = graph.nodes[j].name;
+            if (name == first_isdas) {
+                graph.nodes[j].group = ((ISD.exec(name) - 1) * 4);
+                graph.nodes[j].type = LinkType.Core;
+            }
+        }
+    }
+}
+
+/*
  * Converts links-only topology data into D3 graph layout.
  */
 function convertLinks2Graph(links_topo) {

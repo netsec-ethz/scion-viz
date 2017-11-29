@@ -26,7 +26,6 @@ import time
 from os.path import dirname as dir
 
 import lib.app.sciond as lib_sciond
-from lib.app.sciond import SCIONBaseError
 from lib.app.sciond import SCIONDConnectionError, SCIONDResponseError
 from lib.crypto.certificate_chain import get_cert_chain_file_path
 from lib.crypto.trc import get_trc_file_path
@@ -36,10 +35,14 @@ from lib.defines import (
     PATH_POLICY_FILE,
     SCIOND_API_SOCKDIR,
 )
+from lib.errors import SCIONBaseError
 from lib.packet.host_addr import HostAddrIPv4
-from lib.packet.opaque_field import HopOpaqueField, InfoOpaqueField
 from lib.packet.scion_addr import ISD_AS
-from lib.types import ServiceType
+from lib.sciond_api.segment_req import SCIONDSegTypeHopReplyEntry
+from lib.types import (
+    PathSegmentType as PST,
+    ServiceType,
+)
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SCION_ROOT = dir(dir(BASE_DIR))
@@ -81,6 +84,8 @@ def init():
                         default=False, help='display source AS configuration')
     parser.add_argument('-pp', action="store_true",
                         default=False, help='display source path policy')
+    parser.add_argument('-s', action="store_true", default=False,
+                        help='display segments summary')
 
     args = parser.parse_args()
     s_isd_as = ISD_AS(args.src_isdas)
@@ -127,7 +132,9 @@ def print_as_viewer_info(addr):
             print_json(get_trc_file_path(conf_dir, s_isd_as._isd, 0))
         if args.crt:  # cert chain
             print_json(get_cert_chain_file_path(conf_dir, s_isd_as, 0))
-    except (SCIONBaseError) as err:
+        if args.s:  # segments
+            print_segments_summary(s_isd_as, connector)
+    except (SCIONBaseError, AttributeError) as err:
         logging.error("%s: %s" % (err.__class__.__name__, err))
 
 
@@ -215,7 +222,7 @@ def print_paths(s_isd_as, d_isd_as, connector):
         logging.info("MTU: %s" % path.p.path.mtu)
         logging.info("IPV4: %s" % HostAddrIPv4(path.p.hostInfo.addrs.ipv4))
         logging.info("Port: %s" % path.p.hostInfo.port)
-        logging.info("Interfaces Len: %s" % len(path.p.path.interfaces))
+        logging.info("Hops: %i" % (len(path.p.path.interfaces) / 2))
         # enumerate path interfaces
         for interface in reversed(path.p.path.interfaces):
             isd_as = ISD_AS(interface.isdas)
@@ -226,7 +233,7 @@ def print_paths(s_isd_as, d_isd_as, connector):
         i += 1
 
 
-def print_segments_summary(csegs, dsegs, usegs):
+def print_segments_summary(s_isd_as, connector):
     '''
     Print all up, down, and core segments in summary.
     :param csegs: Array of core segments.
@@ -234,6 +241,12 @@ def print_segments_summary(csegs, dsegs, usegs):
     :param usegs: Array of up segments.
     '''
     logging.info("----------------- SEGMENTS")
+    csegs = lib_sciond.get_segtype_hops(
+        PST.CORE, connector=connector[s_isd_as])
+    usegs = lib_sciond.get_segtype_hops(
+        PST.UP, connector=connector[s_isd_as])
+    dsegs = lib_sciond.get_segtype_hops(
+        PST.DOWN, connector=connector[s_isd_as])
     print_enum_segments(csegs, "CORE")
     print_enum_segments(dsegs, "DOWN")
     print_enum_segments(usegs, "UP")
@@ -247,9 +260,8 @@ def print_enum_segments(segs, type):
     '''
     segidx = 1
     for seg in segs:
-        p = seg.p
-        logging.info("%s\t%s\thops: %s\t\tinterface id: %s" %
-                     (type, segidx, len(p.asms), p.ifID))
+        seg_str = SCIONDSegTypeHopReplyEntry(seg.p).short_desc()
+        logging.info("%s %s\t%s" % (type, segidx, seg_str))
         segidx += 1
 
 
@@ -316,62 +328,6 @@ def get_service_type_name(name):
             return group[type]
     # default
     return name
-
-
-def p_segment(seg, idx, name):
-    '''
-    Print segment detail.
-    :param seg: Segment object.
-    :param idx: Segment index (0-based).
-    :param name: Segment label.
-    '''
-    logging.info("----------------- %s SEGMENT %s" % (name, idx + 1))
-    logging.info("Expiration Time: %s" % seg._min_exp)
-    p = seg.p
-    # InfoOpaqueField
-    logging.info("%s" % InfoOpaqueField(p.info))
-    # PathSegment
-    logging.info("Interface ID: %s" % p.ifID)
-    logging.info("SIBRA Ext Up: %s" % p.exts.sibra.up)
-    asmsidx = 1
-    for asms in p.asms:
-        p_as_marking(asms, asmsidx)
-        asmsidx += 1
-
-
-def p_as_marking(asms, idx):
-    '''
-    Print ASMarking object.
-    :param asms: ASMarking object.
-    :param idx: ASMarking index.
-    '''
-    # ASMarking
-    logging.info("  ----------------- AS Marking Block %s" % idx)
-    logging.info("  AS: %s" % ISD_AS(asms.isdas))
-    logging.info("  TRC: v%s" % asms.trcVer)
-    logging.info("  Cert: v%s" % asms.certVer)
-    logging.info("  Interface ID Size: %s" % asms.ifIDSize)
-    logging.info("  Hashtree Root: %s" % asms.hashTreeRoot.hex())
-    logging.info("  Signature: %s" % asms.sig.hex())
-    logging.info("  AS MTU: %s" % asms.mtu)
-    pcbmsidx = 1
-    for pcbms in asms.pcbms:
-        p_pcb_marking(pcbms, pcbmsidx)
-        pcbmsidx += 1
-
-
-def p_pcb_marking(pcbms, idx):
-    '''
-    Print PCBMarking object.
-    :param pcbms: PCBMarking object.
-    :param idx: PCBMarking index.
-    '''
-    # PCBMarking
-    logging.info("    ----------------- PCB Marking Block %s" % idx)
-    logging.info("    In: %s (%s) mtu = %s" %
-                 (ISD_AS(pcbms.inIA), pcbms.inIF, pcbms.inMTU))
-    logging.info("    Out: %s (%s)" % (ISD_AS(pcbms.outIA), pcbms.outIF))
-    logging.info("    %s" % HopOpaqueField(pcbms.hof))
 
 
 def organize_topo(t):
