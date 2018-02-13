@@ -137,7 +137,7 @@ def launch_sciond(sock_file, addr):
     localhost.
     '''
     # we need an asynchronous call, use Popen()
-    cmd = 'cd %s && bin/sciond --api-addr /run/shm/sciond/sd%s.sock sd%s \
+    cmd = 'cd %s && python/bin/sciond --api-addr /run/shm/sciond/sd%s.sock sd%s \
         gen/ISD%s/AS%s/endhost' % (
         SCION_ROOT, s_isd_as, s_isd_as, s_isd_as._isd, s_isd_as._as)
     if addr and addr != '':
@@ -179,8 +179,7 @@ def print_as_topology(s_isd_as, connector):
     try:
         t = lib_sciond.get_as_info(connector=connector[s_isd_as])
         i = lib_sciond.get_if_info(connector=connector[s_isd_as])
-        srvs = [ServiceType.BS, ServiceType.PS,
-                ServiceType.CS, ServiceType.SIBRA]
+        srvs = [ServiceType.BS, ServiceType.PS, ServiceType.CS]
         s = lib_sciond.get_service_info(srvs, connector=connector[s_isd_as])
     except (SCIONDResponseError) as err:
         logging.error("%s: %s" % (err.__class__.__name__, err))

@@ -239,8 +239,7 @@ def get_json_as_topology_sciond(connector, paths):
             if_idx += 1
 
         logging.info("\n-------- SCIOND: Service Info")
-        srvs = [ServiceType.BS, ServiceType.PS,
-                ServiceType.CS, ServiceType.SIBRA]
+        srvs = [ServiceType.BS, ServiceType.PS, ServiceType.CS]
         v = lib_sciond.get_service_info(
             srvs, connector=connector)
         for key in v:
@@ -733,7 +732,7 @@ def set_param(request, name, default):
 
 def launch_sciond(sock_file, addr, s_isd_as):
     # we need an asynchronous call, use Popen()
-    cmd = 'cd %s && bin/sciond --api-addr /run/shm/sciond/sd%s.sock \
+    cmd = 'cd %s && python/bin/sciond --api-addr /run/shm/sciond/sd%s.sock \
         sd%s gen/ISD%s/AS%s/endhost' % (
         SCION_ROOT, s_isd_as, s_isd_as, s_isd_as._isd, s_isd_as._as)
     if addr and addr != '':
