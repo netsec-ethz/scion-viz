@@ -45,21 +45,6 @@ function getTab() {
     return $("ul#sampleTabs li.active")
 }
 
-window.onload = function() {
-    // PANEL: Path Topology Graph
-    // primary loading currently on index.html
-
-    // PANEL: Path Data List
-    setupPathSelection();
-    setupListTree();
-
-    // PANEL: AS Topology Graph
-    // primary loading currently on index.html
-
-    // PANEL: AS Topology Data List
-    document.getElementById("as-selection").innerHTML = "Click on a server";
-}
-
 /*
  * Creates on-click handler that will draw/hide selected path arcs.
  */
@@ -70,26 +55,139 @@ function setupPathSelection() {
     $('li[seg-type="UP"]').children().css("color", colorSegUp);
     $('li[seg-type="PATH"]').children().css("color", colorPaths);
 
-    // add path graph selection and color
-    $("li").click(function() {
+    // handle path graph-only selection and color
+    $("#as-iflist > ul > li").click(function() {
         var type = $(this).attr("seg-type");
-        var num = parseInt($(this).attr("seg-num"));
+        var idx = parseInt($(this).attr("seg-num"));
         if (this.className == "open") {
-            console.log(type + num + ' opened');
+            console.log(type + idx + ' opened');
+            var num = idx + 1;
             if (type == 'CORE') {
-                drawPath(resCore, num, colorSegCore);
+                addSegments(resCore, idx, num, colorSegCore, type);
             } else if (type == 'DOWN') {
-                drawPath(resDown, num, colorSegDown);
+                addSegments(resDown, idx, num, colorSegDown, type);
             } else if (type == 'UP') {
-                drawPath(resUp, num, colorSegUp);
+                addSegments(resUp, idx, num, colorSegUp, type);
             } else if (type == 'PATH') {
-                drawPath(resPath, num, colorPaths);
+                addPaths(resPath, idx, num, colorPaths, type);
             }
         } else {
-            console.log(type + num + ' closed');
-            restorePath();
+            console.log(type + idx + ' closed');
+            removePaths();
         }
     });
+}
+
+/*
+ * Adds D3 forwarding path links with arrows and a title to paths graph.
+ */
+function addPaths(res, idx, num, color, type) {
+    drawPath(res, idx, color);
+    drawTitle(type + ' ' + num, color);
+}
+
+/*
+ * Adds D3 segment links with arrows, title, and timer to paths graph.
+ */
+function addSegments(res, idx, num, color, type) {
+    drawPath(res, idx, color);
+    drawTitle(type + ' SEGMENT ' + num, color, res.if_lists[idx].expTime);
+}
+
+/*
+ * Removes D3 path links, title, and timer from paths graph.
+ */
+function removePaths() {
+    restorePath();
+    removeTitle();
+}
+
+/*
+ * Test incoming segments for proper beaconing order, and invert when needed.
+ * Since modifying up segments, can effect analysis of core segments, we analyze
+ * in this order: paths, core, up, down.
+ */
+function orderPaths(src, dst) {
+    // fwd paths should begin with src ia
+    if (isIAHead(resPath, src)) {
+        resPath.if_lists = invertInterfaces(resPath.if_lists);
+    }
+    if (resUp.if_lists.length > 0) {
+        // if up segments, core should match one ia from up segments
+        if (isCoreInverted(resCore, resUp)) {
+            resCore.if_lists = invertInterfaces(resCore.if_lists);
+        }
+    } else {
+        // if no up segments, core segments begin with src ia
+        if (isIAHead(resCore, src)) {
+            resCore.if_lists = invertInterfaces(resCore.if_lists);
+        }
+    }
+    // up segments should begin with src ia
+    if (isIAHead(resUp, src)) {
+        resUp.if_lists = invertInterfaces(resUp.if_lists);
+    }
+    // down segments should end with dst ia
+    if (isIATail(resDown, dst)) {
+        resDown.if_lists = invertInterfaces(resDown.if_lists);
+    }
+}
+
+/*
+ * Utility to invert the hop order.
+ */
+function invertInterfaces(if_lists) {
+    for (i in if_lists) {
+        if_lists[i].interfaces.reverse();
+    }
+    return if_lists;
+}
+
+/*
+ * Discover if IA is at the beginning of this set of segments.
+ */
+function isIAHead(segs, ia) {
+    reverse = false;
+    for (s in segs.if_lists) {
+        head = segs.if_lists[s].interfaces[0];
+        if ((head.ISD + '-' + head.AS) != ia) {
+            reverse = true;
+        }
+    }
+    return reverse;
+}
+
+/*
+ * Discover if IA is at the end of this set of segments.
+ */
+function isIATail(segs, ia) {
+    reverse = false;
+    for (s in segs.if_lists) {
+        tail = segs.if_lists[s].interfaces.slice(-1)[0];
+        if ((tail.ISD + '-' + tail.AS) != ia) {
+            reverse = true;
+        }
+    }
+    return reverse;
+}
+
+/*
+ * Discover if core segment heads can be found within up segments.
+ */
+function isCoreInverted(csegs, usegs) {
+    reverse = true;
+    for (c in csegs.if_lists) {
+        head = csegs.if_lists[c].interfaces[0];
+        for (u in usegs.if_lists) {
+            for (i in usegs.if_lists[u].interfaces) {
+                _if = usegs.if_lists[u].interfaces[i];
+                if ((head.ISD + '-' + head.AS) == (_if.ISD + '-' + _if.AS)) {
+                    reverse = false;
+                }
+            }
+        }
+    }
+    return reverse;
 }
 
 /*
