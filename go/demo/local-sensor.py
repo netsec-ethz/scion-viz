@@ -21,6 +21,6 @@ if __name__ == "__main__":
         idle_delta, total_delta = idle - last_idle, total - last_total
         last_idle, last_total = idle, total
         utilization = 100.0 * (1.0 - idle_delta / total_delta)
-        print('CPU Utilization: %.1f%%' % utilization)
+        print('CPU Utilization: %.1f%%' % utilization, flush=True )
 
         time.sleep(10)
