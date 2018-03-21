@@ -24,8 +24,7 @@ from django.shortcuts import render
 import lib.app.sciond as lib_sciond
 from as_viewer.settings import SCION_ROOT
 from lib.app.sciond import SCIONDConnectionError, SCIONDResponseError
-from lib.crypto.certificate_chain import get_cert_chain_file_path
-from lib.crypto.trc import get_trc_file_path
+from lib.crypto.util import CERT_DIR
 from lib.defines import (
     GEN_PATH,
     SCIOND_API_SOCKDIR,
@@ -638,17 +637,21 @@ def organize_topo(t):
     }
 
 
-def html_jsonfile(path):
+def html_jsonfile(paths):
     '''
     Parses json data into html nested lists.
-    :param path: Path to json file.
+    :param paths: Paths to json files.
     '''
-    logging.info(path)
-    with open(path, 'r') as fin:
-        file = json.load(fin)
     s = []
     s.append("<ul class='tree'>")
-    step_json(s, file)
+    for path in paths:
+        logging.info(path)
+        with open(path, 'r') as fin:
+            file = json.load(fin)
+        list_add(s, "<b>%s</b>" % os.path.basename(path))
+        indent_open(s)
+        step_json(s, file)
+        indent_close(s)
     indent_close(s)
     out_str = ''
     for str in s:
@@ -719,6 +722,18 @@ def launch_sciond(sock_file, addr, s_isd_as):
     while not os.path.exists(sock_file) and wait < 5:
         wait = wait + 1
         time.sleep(1)
+
+
+def findCerts(conf_dir, extension):
+    '''
+    Returns all cert paths based on extension.
+    '''
+    certs = []
+    certDir = os.path.join(conf_dir, CERT_DIR)
+    for file in os.listdir(certDir):
+        if file.endswith(extension):
+            certs.append(os.path.join(certDir, file))
+    return certs
 
 
 def index(request):
@@ -794,11 +809,8 @@ def index(request):
             t = Topology.from_file(os.path.join(conf_dir, TOPO_FILE))
             topo = organize_topo(t)
             p['json_as_topo'] = json.dumps(get_json_as_topology(t, topo))
-            p['json_trc'] = html_jsonfile(
-                get_trc_file_path(conf_dir, s_isd_as._isd, 0))
-            p['json_crt'] = html_jsonfile(
-                get_cert_chain_file_path(conf_dir, s_isd_as, 0))
-
+            p['json_trc'] = html_jsonfile(findCerts(conf_dir, ".trc"))
+            p['json_crt'] = html_jsonfile(findCerts(conf_dir, ".crt"))
         p['path_info'] = get_as_view_html(paths, csegs, usegs, dsegs)
         p['json_path_topo'] = json.dumps(
             get_json_path_segs(paths, csegs, usegs, dsegs))
