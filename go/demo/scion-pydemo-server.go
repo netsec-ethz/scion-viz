@@ -1,3 +1,5 @@
+// scion-pydemo-server application
+// Python output feed test app based on: https://github.com/perrig/scionlab/tree/master/sensorapp
 package main
 
 import (
@@ -32,13 +34,14 @@ func init() {
     sensorData = make(map[string]string)
 }
 
+// Obtains input from sensor observation application
 func parseInput() {
     input := bufio.NewScanner(os.Stdin)
     for input.Scan() {
         line := input.Text()
         index := strings.Index(line, TIMEANDSEPARATORSTRING)
         if index == 0 {
-            // We found a time string, we assume format: 2017/11/16 21:29:49
+            // We found a time string, format in case parsing is desired: 2017/11/16 21:29:49
             timestr := line[len(TIMEANDSEPARATORSTRING):]
             sensorDataLock.Lock()
             sensorData[TIMESTRING] = timestr
@@ -86,7 +89,7 @@ func main() {
         check(fmt.Errorf("Error, server address needs to be specified with -s"))
     }
 
-    sciondAddr := "/run/shm/sciond/sd" + strconv.Itoa(server.IA.I) + "-" + strconv.Itoa(server.IA.A) + ".sock"
+    sciondAddr := "/run/shm/sciond/sd" + strconv.Itoa(int(server.IA.I)) + "-" + strconv.Itoa(int(server.IA.A)) + ".sock"
     dispatcherAddr := "/run/shm/dispatcher/default.sock"
     snet.Init(server.IA, sciondAddr, dispatcherAddr)
 
@@ -99,6 +102,7 @@ func main() {
         _, clientAddress, err := udpConnection.ReadFrom(receivePacketBuffer)
         check(err)
 
+        // Packet received, send back response to same client
         var sensorValues string
         var timeString string
         sensorDataLock.Lock()

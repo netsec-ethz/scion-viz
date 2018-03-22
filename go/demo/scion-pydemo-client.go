@@ -1,3 +1,5 @@
+// scion-pydemo-client application
+// Python output feed test app based on: https://github.com/perrig/scionlab/tree/master/sensorapp
 package main
 
 import (
@@ -53,7 +55,7 @@ func main() {
         check(fmt.Errorf("Error, server address needs to be specified with -s"))
     }
 
-    sciondAddr := "/run/shm/sciond/sd" + strconv.Itoa(local.IA.I) + "-" + strconv.Itoa(local.IA.A) + ".sock"
+    sciondAddr := "/run/shm/sciond/sd" + strconv.Itoa(int(local.IA.I)) + "-" + strconv.Itoa(int(local.IA.A)) + ".sock"
     dispatcherAddr := "/run/shm/dispatcher/default.sock"
     snet.Init(local.IA, sciondAddr, dispatcherAddr)
 

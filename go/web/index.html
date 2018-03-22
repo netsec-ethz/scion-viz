@@ -14,29 +14,37 @@
  </form>
  <br>
  <form action="/img" method="post">
-  <input type="submit" value="Generate Test Image" />
+  <input type="submit" value="Generate Local Image" />
  </form>
  <br>
  <form action="/launch" method="post">
+  SCIONLab Client Tests
+  <div>
+   <select name="apps" size="5">
+    <option value="camerapp">camerapp</option>
+    <option value="sensorapp">sensorapp</option>
+    <option value="bwtester">bwtester</option>
+    <option value="demotime">demotime</option>
+    <option value="demoimage">demoimage</option>
+   </select>
+  </div>
   <div>
    Client ISD-AS,[Host]:Port: <input type="text" name="ia_cli" required
-    placeholder="1-3" pattern="^[0-9]*-[0-9]*$" value=""
-    style="width: 60px;">,[<input type="text" name="addr_cli"
-    placeholder="127.0.0.3"
+    value="1-11" pattern="^[0-9]*-[0-9]*$" style="width: 60px;">,[<input
+    type="text" name="addr_cli" required value="127.0.0.3"
     pattern="((^|\.)((25[0-5])|(2[0-4]\d)|(1\d\d)|([1-9]?\d))){4}$"
-    value="" style="width: 125px;">]:<input name="port_cli"
-    type="number" placeholder=30003 style="width: 75px;" min="1">
+    style="width: 125px;">]:<input name="port_cli" type="number"
+    required value=30001 style="width: 75px;" min="1">
   </div>
   <div>
    Server ISD-AS,[Host]:Port: <input type="text" name="ia_ser" required
-    placeholder="1-2" pattern="^[0-9]*-[0-9]*$" value=""
-    style="width: 60px;">,[<input type="text" name="addr_ser"
-    placeholder="127.0.0.2"
+    value="1-12" pattern="^[0-9]*-[0-9]*$" style="width: 60px;">,[<input
+    type="text" name="addr_ser" required value="127.0.0.2"
     pattern="((^|\.)((25[0-5])|(2[0-4]\d)|(1\d\d)|([1-9]?\d))){4}$"
-    value="" style="width: 125px;">]:<input name="port_ser"
-    type="number" placeholder=30002 style="width: 75px;" min="1">
+    style="width: 125px;">]:<input name="port_ser" type="number"
+    required value=30002 style="width: 75px;" min="1">
   </div>
-  <input type="submit" value="Execute Demo SCION Client"><input
+  <input type="submit" value="Execute SCION Client"><input
    type="reset" value="Reset the form">
  </form>
  <br>

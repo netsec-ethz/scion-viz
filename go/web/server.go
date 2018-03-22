@@ -70,10 +70,28 @@ func launchHandler(w http.ResponseWriter, r *http.Request) {
     addrCli := r.PostFormValue("addr_cli")
     portSer := r.PostFormValue("port_ser")
     portCli := r.PostFormValue("port_cli")
+    appSel := r.PostFormValue("apps")
 
-    // create and execute scion go client app
+    // execute scion go client app with client/server commands
     _, rootfile, _, _ := runtime.Caller(0)
-    filepath := path.Join(path.Dir(rootfile), "../demo/scion-pydemo-client.go")
+    gopath := os.Getenv("GOPATH")
+    slroot := "src/github.com/perrig/scionlab"
+    var filepath string
+    switch appSel {
+    case "sensorapp":
+        filepath = path.Join(gopath, slroot, "sensorapp/sensorfetcher/sensorfetcher.go")
+    case "camerapp":
+        filepath = path.Join(gopath, slroot, "camerapp/imagefetcher/imagefetcher.go")
+    case "bwtester":
+        filepath = path.Join(gopath, slroot, "bwtester/bwtestclient/bwtestclient.go")
+    case "demotime":
+        filepath = path.Join(path.Dir(rootfile), "../demo/scion-pydemo-client.go")
+    case "demoimage":
+        filepath = path.Join(path.Dir(rootfile), "../demo/scion-imgdemo-client.go")
+    default:
+        panic("unknown scion client app")
+    }
+
     optClient := fmt.Sprintf("-c=%s", fmt.Sprintf("%s,[%s]:%s", iaCli, addrCli, portCli))
     optServer := fmt.Sprintf("-s=%s", fmt.Sprintf("%s,[%s]:%s", iaSer, addrSer, portSer))
     log.Printf("Running: %s %s %s\n", filepath, optClient, optServer)
