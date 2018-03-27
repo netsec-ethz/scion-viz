@@ -6,6 +6,10 @@
 <script type="text/javascript"
  src="https://ajax.googleapis.com/ajax/libs/jquery/2.2.0/jquery.min.js"></script>
 <style>
+.output {
+ float: top; height: 50%;
+}
+
 .column {
  float: left; width: 50%; /*margin: 10px*/
 }
@@ -56,8 +60,11 @@
       pattern="((^|\.)((25[0-5])|(2[0-4]\d)|(1\d\d)|([1-9]?\d))){4}$"
       style="width: 125px;">]:<input name="port_ser"
       type="number" required placeholder=30002 style="width: 75px;"
-      min="1"> Additional Options: <input type="text"
-      name="addl_opt" placeholder="-r 10 -i 25">
+      min="1">
+    </div>
+    <div>
+     Additional Options: <input type="text" name="addl_opt"
+      placeholder="-cs 10,1000,1250 -sc 10,1000,12500">
     </div>
     <!-- <input type="submit" value="Execute SCION Client" /> -->
     <input type="button" value="Execute SCION Client"
@@ -65,20 +72,23 @@
      value="Reset the form">
     <p>
    </form>
+   <div style="font-family: monospace;">
+    <div id="results"></div>
+   </div>
   </div>
-  <div class="column" style="font-family: monospace;">
-   <div id="results"></div>
+  <div class="column">
+   <div id="image_text"></div>
+   <div id="images"></div>
   </div>
  </div>
  <script type="text/javascript">
         function img() {
-            // TODO (mwfarb): create watcher for images in a new region
+            // TODO (mwfarb): create watcher for images
             // TODO (mwfarb): move create image code to image server
-            $('#results').load('/img');
+            $('#images').load('/img');
             return true;
         }
         function launch() {
-            // TODO (mwfarb): make sure long exceuting loop text wraps
             // TODO (mwfarb): ensure validating without submit action
             // TODO (mwfarb): create user db of last submits per app, reload
             var i = 1;
