@@ -4,11 +4,13 @@ package main
 
 import (
     "bytes"
+    "encoding/base64"
     "flag"
     "fmt"
     "golang.org/x/image/font"
     "golang.org/x/image/font/basicfont"
     "golang.org/x/image/math/fixed"
+    "html/template"
     "image"
     "image/color"
     "image/draw"
@@ -31,6 +33,9 @@ var addr = flag.String("a", "127.0.0.1", "server host address")
 var port = flag.Int("p", 8000, "server port number")
 var root = flag.String("r", ".", "file system path to browse from")
 var cmdBufLen = 1024
+
+var imgTemplate string = `<!doctype html><html lang="en"><head></head>
+<body><img src="data:image/jpg;base64,{{.Image}}"></body>`
 
 func main() {
     flag.Parse()
@@ -70,6 +75,7 @@ func launchHandler(w http.ResponseWriter, r *http.Request) {
     addrCli := r.PostFormValue("addr_cli")
     portSer := r.PostFormValue("port_ser")
     portCli := r.PostFormValue("port_cli")
+    addlOpt := r.PostFormValue("addl_opt")
     appSel := r.PostFormValue("apps")
 
     // execute scion go client app with client/server commands
@@ -89,13 +95,14 @@ func launchHandler(w http.ResponseWriter, r *http.Request) {
     case "demoimage":
         filepath = path.Join(path.Dir(rootfile), "../demo/scion-imgdemo-client.go")
     default:
-        panic("unknown scion client app")
+        fmt.Fprintf(w, "Unknown SCION client app!")
+        return
     }
 
     optClient := fmt.Sprintf("-c=%s", fmt.Sprintf("%s,[%s]:%s", iaCli, addrCli, portCli))
     optServer := fmt.Sprintf("-s=%s", fmt.Sprintf("%s,[%s]:%s", iaSer, addrSer, portSer))
-    log.Printf("Running: %s %s %s\n", filepath, optClient, optServer)
-    cmd := exec.Command("go", "run", filepath, optServer, optClient)
+    log.Printf("Executing: go run %s %s %s %s\n", filepath, optClient, optServer, addlOpt)
+    cmd := exec.Command("go", "run", filepath, optServer, optClient, addlOpt)
 
     // pipe command results to page
     pipeReader, pipeWriter := io.Pipe()
@@ -107,8 +114,6 @@ func launchHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // Handles piping command line output to http response writer.
-// TODO(mwfarb): determine if this method can be more interactive:
-// blog.kowalczyk.info/article/wOYk/advanced-command-execution-in-go-with-osexec
 func writeCmdOutput(w http.ResponseWriter, pr *io.PipeReader) {
     buf := make([]byte, cmdBufLen)
     for {
@@ -168,7 +173,7 @@ func imgHandler(w http.ResponseWriter, r *http.Request) {
     }
 
     var img image.Image = m
-    writeJpeg(w, &img)
+    writeJpegTemplate(w, &img)
 }
 
 // Configures font to render label at x, y on the img.
@@ -184,8 +189,8 @@ func addImgLabel(img *image.RGBA, x, y int, label string) {
     d.DrawString(label)
 }
 
-// Handles writing jpeg image to http response writer.
-func writeJpeg(w http.ResponseWriter, img *image.Image) {
+// Handles writing jpeg image to http response writer by content-type.
+func writeJpegContentType(w http.ResponseWriter, img *image.Image) {
     buf := new(bytes.Buffer)
     eerr := jpeg.Encode(buf, *img, nil)
     if eerr != nil {
@@ -196,5 +201,25 @@ func writeJpeg(w http.ResponseWriter, img *image.Image) {
     _, werr := w.Write(buf.Bytes())
     if werr != nil {
         log.Println("w.Write() image error: " + werr.Error())
+    }
+}
+
+// Handles writing jpeg image to http response writer by image template.
+func writeJpegTemplate(w http.ResponseWriter, img *image.Image) {
+    buf := new(bytes.Buffer)
+    eerr := jpeg.Encode(buf, *img, nil)
+    if eerr != nil {
+        log.Println("jpeg.Encode() error: " + eerr.Error())
+    }
+    str := base64.StdEncoding.EncodeToString(buf.Bytes())
+    tmpl, perr := template.New("image").Parse(imgTemplate)
+    if perr != nil {
+        log.Println("tmpl.Parse() image error: " + perr.Error())
+    } else {
+        data := map[string]interface{}{"Image": str}
+        xerr := tmpl.Execute(w, data)
+        if xerr != nil {
+            log.Println("tmpl.Execute() image error: " + xerr.Error())
+        }
     }
 }
