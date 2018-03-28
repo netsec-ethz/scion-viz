@@ -7,21 +7,14 @@ import (
     "encoding/base64"
     "flag"
     "fmt"
-    "golang.org/x/image/font"
-    "golang.org/x/image/font/basicfont"
-    "golang.org/x/image/math/fixed"
     "html/template"
     "image"
-    "image/color"
-    "image/draw"
     "image/gif"
     "image/jpeg"
     "image/png"
     "io"
     "io/ioutil"
     "log"
-    "math/rand"
-    "net"
     "net/http"
     "os"
     "os/exec"
@@ -47,7 +40,6 @@ func main() {
 
     http.HandleFunc("/", mainHandler)
     http.Handle("/files/", http.StripPrefix("/files/", http.FileServer(http.Dir(*root))))
-    http.HandleFunc("/img", genImageHandler)
     http.HandleFunc("/launch", launchHandler)
     http.HandleFunc("/imglast", findImageHandler)
     http.HandleFunc("/txtlast", findImageInfoHandler)
@@ -98,9 +90,9 @@ func launchHandler(w http.ResponseWriter, r *http.Request) {
     case "bwtester":
         filepath = path.Join(gopath, slroot, "bwtester/bwtestclient/bwtestclient.go")
     case "demotime":
-        filepath = path.Join(path.Dir(rootfile), "../demo/scion-pydemo-client.go")
+        filepath = path.Join(path.Dir(rootfile), "../demo/pydemo/pyclient/scion-pydemo-client.go")
     case "demoimage":
-        filepath = path.Join(path.Dir(rootfile), "../demo/scion-imgdemo-client.go")
+        filepath = path.Join(path.Dir(rootfile), "../demo/imgdemo/imgclient//scion-imgdemo-client.go")
     default:
         fmt.Fprintf(w, "Unknown SCION client app. Is one selected?")
         return
@@ -138,62 +130,6 @@ func writeCmdOutput(w http.ResponseWriter, pr *io.PipeReader) {
             buf[i] = 0
         }
     }
-}
-
-// Handles generation of machine date, name, interfaces in an image served
-// to the page.
-func genImageHandler(w http.ResponseWriter, r *http.Request) {
-    // generate random light-colored image
-    m := image.NewRGBA(image.Rect(0, 0, 250, 250))
-    rand.Seed(time.Now().UnixNano())
-    rr := uint8(rand.Intn(127) + 127)
-    rg := uint8(rand.Intn(127) + 127)
-    rb := uint8(rand.Intn(127) + 127)
-    color := color.RGBA{rr, rg, rb, 255}
-    draw.Draw(m, m.Bounds(), &image.Uniform{color}, image.ZP, draw.Src)
-
-    // add time to img
-    x, y := 5, 100
-    addImgLabel(m, x, y, time.Now().Format(time.RFC850))
-
-    // add hostname to img
-    name, err := os.Hostname()
-    if err != nil {
-        log.Println("os.Hostname() error: " + err.Error())
-    }
-    y += 20
-    addImgLabel(m, x, y, name)
-
-    // add address to img
-    addrs, err := net.InterfaceAddrs()
-    if err != nil {
-        log.Println("net.InterfaceAddrs() error: " + err.Error())
-    }
-    for _, a := range addrs {
-        if ipnet, ok := a.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
-            if ipnet.IP.To4() != nil {
-                y += 20
-                addrStr := fmt.Sprintf("%s (%s)", ipnet.IP.String(), a.Network())
-                addImgLabel(m, x, y, addrStr)
-            }
-        }
-    }
-
-    var img image.Image = m
-    writeJpegTemplate(w, &img)
-}
-
-// Configures font to render label at x, y on the img.
-func addImgLabel(img *image.RGBA, x, y int, label string) {
-    col := color.RGBA{0, 0, 0, 255}
-    point := fixed.Point26_6{fixed.Int26_6(x * 64), fixed.Int26_6(y * 64)}
-    d := &font.Drawer{
-        Dst:  img,
-        Src:  image.NewUniform(col),
-        Face: basicfont.Face7x13,
-        Dot:  point,
-    }
-    d.DrawString(label)
 }
 
 // Handles writing jpeg image to http response writer by content-type.
