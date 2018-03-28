@@ -1,7 +1,6 @@
 package main
 
 import (
-    "bytes"
     "fmt"
     "golang.org/x/image/font"
     "golang.org/x/image/font/basicfont"
@@ -13,9 +12,7 @@ import (
     "log"
     "math/rand"
     "net"
-    "net/http"
     "os"
-    "strconv"
     "time"
 )
 
@@ -27,13 +24,12 @@ func main() {
             t.Hour(), t.Minute(), t.Second())
         out, err := os.Create(filename)
         if err != nil {
-            fmt.Println(err)
-            os.Exit(1)
+            log.Println("os.Create() error: " + err.Error())
         }
 
         // generate random light-colored image
         img := image.NewRGBA(image.Rect(0, 0, 250, 250))
-        rand.Seed(time.Now().UnixNano())
+        rand.Seed(t.UnixNano())
         rr := uint8(rand.Intn(127) + 127)
         rg := uint8(rand.Intn(127) + 127)
         rb := uint8(rand.Intn(127) + 127)
@@ -42,7 +38,7 @@ func main() {
 
         // add time to img
         x, y := 5, 100
-        addImgLabel(img, x, y, time.Now().Format(time.RFC850))
+        addImgLabel(img, x, y, t.Format(time.RFC850))
 
         // add hostname to img
         name, err := os.Hostname()
@@ -67,16 +63,13 @@ func main() {
             }
         }
 
-        //var img image.Image = img
         var opt jpeg.Options
         opt.Quality = 100
         err = jpeg.Encode(out, img, &opt)
         if err != nil {
-            fmt.Println(err)
-            os.Exit(1)
+            log.Println("jpeg.Encode() error: " + err.Error())
         }
 
-        fmt.Println("Generated image to %s\n", filename)
         time.Sleep(120 * time.Second)
     }
 }
@@ -92,19 +85,4 @@ func addImgLabel(img *image.RGBA, x, y int, label string) {
         Dot:  point,
     }
     d.DrawString(label)
-}
-
-// Handles writing jpeg image to http response writer by content-type.
-func writeJpegContentType(w http.ResponseWriter, img *image.Image) {
-    buf := new(bytes.Buffer)
-    err := jpeg.Encode(buf, *img, nil)
-    if err != nil {
-        log.Println("jpeg.Encode() error: " + err.Error())
-    }
-    w.Header().Set("Content-Type", "image/jpeg")
-    w.Header().Set("Content-Length", strconv.Itoa(len(buf.Bytes())))
-    _, werr := w.Write(buf.Bytes())
-    if werr != nil {
-        log.Println("w.Write() image error: " + werr.Error())
-    }
 }

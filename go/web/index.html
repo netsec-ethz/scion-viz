@@ -79,7 +79,6 @@
   </div>
  </div>
  <script type="text/javascript">
-        // TODO (mwfarb): remove seconds notation from time string
         function launch() {
             // TODO (mwfarb): ensure validating without submit action
             // TODO (mwfarb): create user db of last submits per app, reload
@@ -96,8 +95,11 @@
                 setTimeout(function() {
                     $('#image_text').load('/txtlast');
                     $('#images').load('/imglast');
-                }, 1000);
+                }, 500);
             });
+            // TODO (mwfarb): remove seconds notation from time string
+            // TODO (mwfarb): get cmd newlines to print
+            // TODO (mwfarb): local load of js libs
             return true;
         }
         $(document).ready(function() {

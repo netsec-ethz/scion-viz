@@ -102,6 +102,7 @@ func launchHandler(w http.ResponseWriter, r *http.Request) {
     optServer := fmt.Sprintf("-s=%s", fmt.Sprintf("%s,[%s]:%s", iaSer, addrSer, portSer))
     log.Printf("Executing: go run %s %s %s %s\n", filepath, optClient, optServer, addlOpt)
     cmd := exec.Command("go", "run", filepath, optServer, optClient, addlOpt)
+    cmd.Dir = *root
 
     // pipe command results to page
     pipeReader, pipeWriter := io.Pipe()
