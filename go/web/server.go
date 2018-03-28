@@ -14,7 +14,9 @@ import (
     "image"
     "image/color"
     "image/draw"
+    "image/gif"
     "image/jpeg"
+    "image/png"
     "io"
     "io/ioutil"
     "log"
@@ -24,6 +26,7 @@ import (
     "os"
     "os/exec"
     "path"
+    "regexp"
     "runtime"
     "strconv"
     "time"
@@ -34,16 +37,20 @@ var port = flag.Int("p", 8000, "server port number")
 var root = flag.String("r", ".", "file system path to browse from")
 var cmdBufLen = 1024
 
-var imgTemplate string = `<!doctype html><html lang="en"><head></head>
+var imgTemplate = `<!doctype html><html lang="en"><head></head>
 <body><img src="data:image/jpg;base64,{{.Image}}"></body>`
+
+var regexImg = `([^\s]+(\.(?i)(jp?g|png|gif))$)`
 
 func main() {
     flag.Parse()
 
     http.HandleFunc("/", mainHandler)
     http.Handle("/files/", http.StripPrefix("/files/", http.FileServer(http.Dir(*root))))
-    http.HandleFunc("/img", imgHandler)
+    http.HandleFunc("/img", genImageHandler)
     http.HandleFunc("/launch", launchHandler)
+    http.HandleFunc("/imglast", findImageHandler)
+    http.HandleFunc("/txtlast", findImageInfoHandler)
 
     log.Printf("Browser access at http://%s:%d.\n", *addr, *port)
     log.Printf("File server root: %s\n", *root)
@@ -95,7 +102,7 @@ func launchHandler(w http.ResponseWriter, r *http.Request) {
     case "demoimage":
         filepath = path.Join(path.Dir(rootfile), "../demo/scion-imgdemo-client.go")
     default:
-        fmt.Fprintf(w, "Unknown SCION client app!")
+        fmt.Fprintf(w, "Unknown SCION client app. Is one selected?")
         return
     }
 
@@ -135,7 +142,7 @@ func writeCmdOutput(w http.ResponseWriter, pr *io.PipeReader) {
 
 // Handles generation of machine date, name, interfaces in an image served
 // to the page.
-func imgHandler(w http.ResponseWriter, r *http.Request) {
+func genImageHandler(w http.ResponseWriter, r *http.Request) {
     // generate random light-colored image
     m := image.NewRGBA(image.Rect(0, 0, 250, 250))
     rand.Seed(time.Now().UnixNano())
@@ -192,9 +199,9 @@ func addImgLabel(img *image.RGBA, x, y int, label string) {
 // Handles writing jpeg image to http response writer by content-type.
 func writeJpegContentType(w http.ResponseWriter, img *image.Image) {
     buf := new(bytes.Buffer)
-    eerr := jpeg.Encode(buf, *img, nil)
-    if eerr != nil {
-        log.Println("jpeg.Encode() error: " + eerr.Error())
+    err := jpeg.Encode(buf, *img, nil)
+    if err != nil {
+        log.Println("jpeg.Encode() error: " + err.Error())
     }
     w.Header().Set("Content-Type", "image/jpeg")
     w.Header().Set("Content-Length", strconv.Itoa(len(buf.Bytes())))
@@ -207,19 +214,87 @@ func writeJpegContentType(w http.ResponseWriter, img *image.Image) {
 // Handles writing jpeg image to http response writer by image template.
 func writeJpegTemplate(w http.ResponseWriter, img *image.Image) {
     buf := new(bytes.Buffer)
-    eerr := jpeg.Encode(buf, *img, nil)
-    if eerr != nil {
-        log.Println("jpeg.Encode() error: " + eerr.Error())
+    err := jpeg.Encode(buf, *img, nil)
+    if err != nil {
+        log.Println("jpeg.Encode() error: " + err.Error())
     }
     str := base64.StdEncoding.EncodeToString(buf.Bytes())
-    tmpl, perr := template.New("image").Parse(imgTemplate)
-    if perr != nil {
-        log.Println("tmpl.Parse() image error: " + perr.Error())
+    tmpl, err := template.New("image").Parse(imgTemplate)
+    if err != nil {
+        log.Println("tmpl.Parse() image error: " + err.Error())
     } else {
         data := map[string]interface{}{"Image": str}
-        xerr := tmpl.Execute(w, data)
-        if xerr != nil {
-            log.Println("tmpl.Execute() image error: " + xerr.Error())
+        err := tmpl.Execute(w, data)
+        if err != nil {
+            log.Println("tmpl.Execute() image error: " + err.Error())
         }
     }
+}
+
+// Helper method to find most recently modified regex extRegEx filename in dir.
+func findNewestImage(dir, extRegEx string) (imgFilename string, imgTimestamp int64) {
+    files, _ := ioutil.ReadDir(dir)
+    for _, f := range files {
+        fi, err := os.Stat(dir + f.Name())
+        if err != nil {
+            log.Println("os.Stat() error: " + err.Error())
+        }
+        matched, err := regexp.MatchString(extRegEx, f.Name())
+        if matched {
+            modTime := fi.ModTime().Unix()
+            if modTime > imgTimestamp {
+                imgTimestamp = modTime
+                imgFilename = f.Name()
+            }
+        }
+    }
+    return
+}
+
+// Handles locating most recent image and writing text info data about it.
+func findImageInfoHandler(w http.ResponseWriter, r *http.Request) {
+    imgFilename, imgTimestamp := findNewestImage(*root, regexImg)
+    if imgFilename == "" {
+        return
+    }
+    t := time.Unix(imgTimestamp, 0)
+    d := time.Since(t)
+    fileText := imgFilename + " modified " + d.Truncate(time.Minute).String() + " ago."
+    fmt.Fprintf(w, fileText)
+}
+
+// Handles locating most recent image formatting it for graphic display in response.
+func findImageHandler(w http.ResponseWriter, r *http.Request) {
+    imgFilename, _ := findNewestImage(*root, regexImg)
+    if imgFilename == "" {
+        return
+    }
+    log.Println("Found image file: " + imgFilename)
+    imgFile, err := os.Open(*root + imgFilename)
+    if err != nil {
+        log.Println("os.Open() error: " + err.Error())
+    }
+    defer imgFile.Close()
+    _, imageType, err := image.Decode(imgFile)
+    if err != nil {
+        log.Println("image.Decode() error: " + err.Error())
+    }
+    log.Println("Found image type: " + imageType)
+    // reset file pointer to beginning
+    imgFile.Seek(0, 0)
+    var rawImage image.Image
+    switch imageType {
+    case "gif":
+        rawImage, err = gif.Decode(imgFile)
+    case "png":
+        rawImage, err = png.Decode(imgFile)
+    case "jpeg":
+        rawImage, err = jpeg.Decode(imgFile)
+    default:
+        panic("Unhandled image type!")
+    }
+    if err != nil {
+        log.Println("png.Decode() error: " + err.Error())
+    }
+    writeJpegTemplate(w, &rawImage)
 }

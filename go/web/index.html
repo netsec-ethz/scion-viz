@@ -83,8 +83,8 @@
  </div>
  <script type="text/javascript">
         function img() {
-            // TODO (mwfarb): create watcher for images
             // TODO (mwfarb): move create image code to image server
+            // TODO (mwfarb): remove seconds notation from time string
             $('#images').load('/img');
             return true;
         }
@@ -100,6 +100,11 @@
             var form_data = $('#launch-form').serializeArray();
             $('#results').load('/launch', form_data, function() {
                 clearInterval(launchProg);
+                // check for new images once, on launch complete
+                setTimeout(function() {
+                    $('#image_text').load('/txtlast');
+                    $('#images').load('/imglast');
+                }, 1000);
             });
             return true;
         }
@@ -107,6 +112,13 @@
             $.ajaxSetup({
                 cache : false
             });
+            // check for new images once, on startup
+            $('#image_text').load('/txtlast');
+            $('#images').load('/imglast');
+            // update image text each minute
+            var imageText = setInterval(function() {
+                $('#image_text').load('/txtlast');
+            }, 60000);
         });
     </script>
  <noscript>This form requires that you have javascript
