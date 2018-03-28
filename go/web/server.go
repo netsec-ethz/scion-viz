@@ -92,7 +92,7 @@ func launchHandler(w http.ResponseWriter, r *http.Request) {
     case "demotime":
         filepath = path.Join(path.Dir(rootfile), "../demo/pydemo/pyclient/scion-pydemo-client.go")
     case "demoimage":
-        filepath = path.Join(path.Dir(rootfile), "../demo/imgdemo/imgclient//scion-imgdemo-client.go")
+        filepath = path.Join(path.Dir(rootfile), "../demo/imgdemo/imgclient/scion-imgdemo-client.go")
     default:
         fmt.Fprintf(w, "Unknown SCION client app. Is one selected?")
         return
