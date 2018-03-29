@@ -78,6 +78,26 @@ func launchHandler(w http.ResponseWriter, r *http.Request) {
     appSel := r.PostFormValue("apps")
 
     // execute scion go client app with client/server commands
+    filepath := getClientLocation(appSel)
+    if filepath == "" {
+        fmt.Fprintf(w, "Unknown SCION client app. Is one selected?")
+    }
+    optClient := fmt.Sprintf("-c=%s", fmt.Sprintf("%s,[%s]:%s", iaCli, addrCli, portCli))
+    optServer := fmt.Sprintf("-s=%s", fmt.Sprintf("%s,[%s]:%s", iaSer, addrSer, portSer))
+    log.Printf("Executing: go run %s %s %s %s\n", filepath, optClient, optServer, addlOpt)
+    cmd := exec.Command("go", "run", filepath, optServer, optClient, addlOpt)
+    cmd.Dir = *root
+
+    // pipe command results to page
+    pipeReader, pipeWriter := io.Pipe()
+    cmd.Stdout = pipeWriter
+    cmd.Stderr = pipeWriter
+    go writeCmdOutput(w, pipeReader)
+    cmd.Run()
+    pipeWriter.Close()
+}
+
+func getClientLocation(appSel string) string {
     _, rootfile, _, _ := runtime.Caller(0)
     gopath := os.Getenv("GOPATH")
     slroot := "src/github.com/perrig/scionlab"
@@ -93,24 +113,8 @@ func launchHandler(w http.ResponseWriter, r *http.Request) {
         filepath = path.Join(path.Dir(rootfile), "../demo/pydemo/pyclient/scion-pydemo-client.go")
     case "demoimage":
         filepath = path.Join(path.Dir(rootfile), "../demo/imgdemo/imgclient/scion-imgdemo-client.go")
-    default:
-        fmt.Fprintf(w, "Unknown SCION client app. Is one selected?")
-        return
     }
-
-    optClient := fmt.Sprintf("-c=%s", fmt.Sprintf("%s,[%s]:%s", iaCli, addrCli, portCli))
-    optServer := fmt.Sprintf("-s=%s", fmt.Sprintf("%s,[%s]:%s", iaSer, addrSer, portSer))
-    log.Printf("Executing: go run %s %s %s %s\n", filepath, optClient, optServer, addlOpt)
-    cmd := exec.Command("go", "run", filepath, optServer, optClient, addlOpt)
-    cmd.Dir = *root
-
-    // pipe command results to page
-    pipeReader, pipeWriter := io.Pipe()
-    cmd.Stdout = pipeWriter
-    cmd.Stderr = pipeWriter
-    go writeCmdOutput(w, pipeReader)
-    cmd.Run()
-    pipeWriter.Close()
+    return filepath
 }
 
 // Handles piping command line output to http response writer.
@@ -172,7 +176,7 @@ func writeJpegTemplate(w http.ResponseWriter, img *image.Image) {
 func findNewestImage(dir, extRegEx string) (imgFilename string, imgTimestamp int64) {
     files, _ := ioutil.ReadDir(dir)
     for _, f := range files {
-        fi, err := os.Stat(dir + f.Name())
+        fi, err := os.Stat(path.Join(dir, f.Name()))
         if err != nil {
             log.Println("os.Stat() error: " + err.Error())
         }
@@ -190,7 +194,10 @@ func findNewestImage(dir, extRegEx string) (imgFilename string, imgTimestamp int
 
 // Handles locating most recent image and writing text info data about it.
 func findImageInfoHandler(w http.ResponseWriter, r *http.Request) {
-    imgFilename, imgTimestamp := findNewestImage(*root, regexImg)
+    r.ParseForm()
+    filesDir := path.Dir(getClientLocation(r.PostFormValue("apps")))
+
+    imgFilename, imgTimestamp := findNewestImage(filesDir, regexImg)
     if imgFilename == "" {
         return
     }
@@ -202,12 +209,15 @@ func findImageInfoHandler(w http.ResponseWriter, r *http.Request) {
 
 // Handles locating most recent image formatting it for graphic display in response.
 func findImageHandler(w http.ResponseWriter, r *http.Request) {
-    imgFilename, _ := findNewestImage(*root, regexImg)
+    r.ParseForm()
+    filesDir := path.Dir(getClientLocation(r.PostFormValue("apps")))
+
+    imgFilename, _ := findNewestImage(filesDir, regexImg)
     if imgFilename == "" {
         return
     }
     log.Println("Found image file: " + imgFilename)
-    imgFile, err := os.Open(*root + imgFilename)
+    imgFile, err := os.Open(path.Join(filesDir, imgFilename))
     if err != nil {
         log.Println("os.Open() error: " + err.Error())
     }

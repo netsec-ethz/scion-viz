@@ -93,9 +93,13 @@
                 clearInterval(launchProg);
                 // check for new images once, on launch complete
                 setTimeout(function() {
-                    $('#image_text').load('/txtlast');
-                    $('#images').load('/imglast');
+                    $('#image_text').load('/txtlast', form_data);
+                    $('#images').load('/imglast', form_data);
                 }, 500);
+                // update image text each minute
+                var imageText = setInterval(function() {
+                    $('#image_text').load('/txtlast', form_data);
+                }, 60000);
             });
             // TODO (mwfarb): remove seconds notation from time string
             // TODO (mwfarb): get cmd newlines to print
@@ -106,13 +110,6 @@
             $.ajaxSetup({
                 cache : false
             });
-            // check for new images once, on startup
-            $('#image_text').load('/txtlast');
-            $('#images').load('/imglast');
-            // update image text each minute
-            var imageText = setInterval(function() {
-                $('#image_text').load('/txtlast');
-            }, 60000);
         });
     </script>
  <noscript>This form requires that you have javascript
