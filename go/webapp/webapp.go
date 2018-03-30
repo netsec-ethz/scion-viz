@@ -1,4 +1,4 @@
-// go run sub/scion-viz/go/web/server.go -a 0.0.0.0 -p 8000 -r .
+// go run sub/scion-viz/go/webapp/webapp.go -a 0.0.0.0 -p 8000 -r .
 
 package main
 
@@ -56,7 +56,7 @@ func mainHandler(w http.ResponseWriter, r *http.Request) {
     w.WriteHeader(http.StatusOK)
 
     _, rootfile, _, _ := runtime.Caller(0)
-    filepath := path.Join(path.Dir(rootfile), "index.html")
+    filepath := path.Join(path.Dir(rootfile), "template/index.html")
     data, err := ioutil.ReadFile(filepath)
     if err != nil {
         log.Fatal("ioutil.ReadFile() error: " + err.Error())
@@ -110,9 +110,9 @@ func getClientLocation(appSel string) string {
     case "bwtester":
         filepath = path.Join(gopath, slroot, "bwtester/bwtestclient/bwtestclient.go")
     case "demotime":
-        filepath = path.Join(path.Dir(rootfile), "../demo/pydemo/pyclient/scion-pydemo-client.go")
+        filepath = path.Join(path.Dir(rootfile), "demo/pydemo/pyclient/scion-pydemo-client.go")
     case "demoimage":
-        filepath = path.Join(path.Dir(rootfile), "../demo/imgdemo/imgclient/scion-imgdemo-client.go")
+        filepath = path.Join(path.Dir(rootfile), "demo/imgdemo/imgclient/scion-imgdemo-client.go")
     }
     return filepath
 }
