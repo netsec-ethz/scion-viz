@@ -69,7 +69,7 @@
      value="Reset the form">
     <p>
    </form>
-   <div style="font-family: monospace;">
+   <div style="font-family: monospace; white-space: pre-line;">
     <div id="results"></div>
    </div>
   </div>
@@ -101,7 +101,6 @@
                     $('#image_text').load('/txtlast', form_data);
                 }, 60000);
             });
-            // TODO (mwfarb): *get cmd newlines to print
             // TODO (mwfarb): *local load of js libs
             return true;
         }
