@@ -192,6 +192,25 @@ func findNewestImage(dir, extRegEx string) (imgFilename string, imgTimestamp int
     return
 }
 
+// Calulates time duration estimate expressed as a very short string.
+func timeDurationEst(t time.Time) string {
+    var buf bytes.Buffer
+    d := time.Since(t)
+    dDays := d / (24 * time.Hour)
+    dHrs := d % (24 * time.Hour)
+    dMins := dHrs % time.Hour
+    if dDays > 0 {
+        buf.WriteString(fmt.Sprintf("%dd", dDays))
+    } else if dHrs/time.Hour > 0 {
+        buf.WriteString(fmt.Sprintf("%dh", dHrs/time.Hour))
+    } else if dMins/time.Minute > 0 {
+        buf.WriteString(fmt.Sprintf("%dm", dMins/time.Minute))
+    } else {
+        buf.WriteString("0m")
+    }
+    return buf.String()
+}
+
 // Handles locating most recent image and writing text info data about it.
 func findImageInfoHandler(w http.ResponseWriter, r *http.Request) {
     r.ParseForm()
@@ -202,8 +221,7 @@ func findImageInfoHandler(w http.ResponseWriter, r *http.Request) {
         return
     }
     t := time.Unix(imgTimestamp, 0)
-    d := time.Since(t)
-    fileText := imgFilename + " modified " + d.Truncate(time.Minute).String() + " ago."
+    fileText := imgFilename + " modified " + timeDurationEst(t) + " ago."
     fmt.Fprintf(w, fileText)
 }
 
