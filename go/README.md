@@ -2,12 +2,6 @@
 
 These are instructions for setting up this repo within the scion infrastructure to view visual web results from an AS deployment or test environment.
 
-You may need to add some required packages to run the current code:
-
-    ```
-    go get golang.org/x/image
-    ```
-
 To run the Go Web UI at default localhost 127.0.0.1:8000 use:
 
     ```

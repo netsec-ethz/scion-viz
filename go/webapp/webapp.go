@@ -97,6 +97,7 @@ func launchHandler(w http.ResponseWriter, r *http.Request) {
     pipeWriter.Close()
 }
 
+// Parses html selection and returns location of app to launch.
 func getClientLocation(appSel string) string {
     _, rootfile, _, _ := runtime.Caller(0)
     gopath := os.Getenv("GOPATH")

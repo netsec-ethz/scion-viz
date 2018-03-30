@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <title>Go Web Server</title>
+<script type="text/javascript" src="static/js/jquery-2.2.0.min.js"></script>
 <script type="text/javascript"
  src="https://ajax.googleapis.com/ajax/libs/jquery/2.2.0/jquery.min.js"></script>
 <style>
@@ -31,7 +32,7 @@
    <form action="/launch" method="post" id="launch-form">
     SCIONLab Client Tests
     <div>
-     <select name="apps" size="5" required>
+     <select id="apps" name="apps" size="5" required>
       <option value="camerapp">camerapp</option>
       <option value="sensorapp">sensorapp</option>
       <option value="bwtester">bwtester</option>
@@ -83,7 +84,8 @@
             // TODO (mwfarb): ensure validating without submit action
             // TODO (mwfarb): create user db of last submits per app, reload
             var i = 1;
-            $("#results").text("Executing.");
+            $("#results").text("Executing ");
+            $('#results').append($("#apps :selected").text());
             var launchProg = setInterval(function() {
                 $('#results').append('.');
                 i += 1;
@@ -102,6 +104,7 @@
                 }, 60000);
             });
             // TODO (mwfarb): *local load of js libs
+            // TODO (mwfarb): add better readme for all apps
             return true;
         }
         $(document).ready(function() {
