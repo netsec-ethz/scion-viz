@@ -2,8 +2,7 @@
 <html>
 <head>
 <meta charset="utf-8">
-<title>Go Web Server</title>
-<script type="text/javascript" src="static/js/jquery-2.2.0.min.js"></script>
+<title>SCIONLab Go Tests</title>
 <script type="text/javascript"
  src="https://ajax.googleapis.com/ajax/libs/jquery/2.2.0/jquery.min.js"></script>
 <style>
@@ -21,8 +20,13 @@
 </style>
 </head>
 <body>
- <h1>Go Web Server</h1>
- <p>This Go server demo is a work in progress.</p>
+ <h1>SCIONLab Go Tests</h1>
+ <p>
+  This Go web server wraps several SCION test client apps and provides
+  an interface for any text and/or image output received. <a
+   href='http://github.com/perrig/scionlab'>SCIONLab Apps</a> are on
+  Github.
+ </p>
  <div class="row">
   <div class="column">
    <form action="/files" method="post">
@@ -103,8 +107,10 @@
                     $('#image_text').load('/txtlast', form_data);
                 }, 60000);
             });
-            // TODO (mwfarb): *local load of js libs
+            // TODO (mwfarb): local load of js libs
             // TODO (mwfarb): add better readme for all apps
+            // TODO (mwfarb): reset form must clean out, itext, img
+            // TODO (mwfarb): disable timer
             return true;
         }
         $(document).ready(function() {
