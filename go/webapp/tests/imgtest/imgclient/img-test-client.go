@@ -1,4 +1,4 @@
-// scion-imgdemo-client application
+// image-test-client application
 // Remote image test app based on: https://github.com/perrig/scionlab/tree/master/cameraapp
 package main
 
@@ -31,7 +31,7 @@ func check(e error) {
 }
 
 func printUsage() {
-    fmt.Println("scion-imgdemo-client -c ClientSCIONAddress -s ServerSCIONAddress")
+    fmt.Println("image-test-client -c ClientSCIONAddress -s ServerSCIONAddress")
     fmt.Println("The SCION address is specified as ISD-AS,[IP Address]:Port")
     fmt.Println("Example SCION address 1-1011,[192.33.93.166]:42002")
 }

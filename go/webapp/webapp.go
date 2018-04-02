@@ -110,10 +110,10 @@ func getClientLocation(appSel string) string {
         filepath = path.Join(gopath, slroot, "camerapp/imagefetcher/imagefetcher.go")
     case "bwtester":
         filepath = path.Join(gopath, slroot, "bwtester/bwtestclient/bwtestclient.go")
-    case "demotime":
-        filepath = path.Join(path.Dir(rootfile), "demo/pydemo/pyclient/scion-pydemo-client.go")
-    case "demoimage":
-        filepath = path.Join(path.Dir(rootfile), "demo/imgdemo/imgclient/scion-imgdemo-client.go")
+    case "statstest":
+        filepath = path.Join(path.Dir(rootfile), "tests/statstest/statsclient/stats-test-client.go")
+    case "imagetest":
+        filepath = path.Join(path.Dir(rootfile), "tests/imgtest/imgclient/image-test-client.go")
     }
     return filepath
 }

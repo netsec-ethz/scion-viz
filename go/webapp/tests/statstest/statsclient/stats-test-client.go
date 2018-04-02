@@ -1,4 +1,4 @@
-// scion-pydemo-client application
+// stats-test-client application
 // Python output feed test app based on: https://github.com/perrig/scionlab/tree/master/sensorapp
 package main
 
@@ -17,7 +17,7 @@ func check(e error) {
 }
 
 func printUsage() {
-    fmt.Println("scion-pydemo-server -s ServerSCIONAddress -c ClientSCIONAddress")
+    fmt.Println("stats-test-client -s ServerSCIONAddress -c ClientSCIONAddress")
     fmt.Println("The SCION address is specified as ISD-AS,[IP Address]:Port")
     fmt.Println("Example SCION address 1-1,[127.0.0.1]:42002")
 }
