@@ -1,4 +1,4 @@
-// go run sub/scion-viz/go/webapp/webapp.go -a 0.0.0.0 -p 8000 -r .
+// go run webapp.go -a 0.0.0.0 -p 8080 -r .
 
 package main
 
