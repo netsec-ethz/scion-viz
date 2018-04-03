@@ -32,7 +32,8 @@
     <input type="submit" value="Browse File System" />
    </form>
    <p>
-   <form action="/launch" method="post" id="launch-form">
+   <form action="/launch" method="post" id="launch-form"
+    onreset="resetHandler();">
     SCIONLab Client Tests
     <div>
      <select id="apps" name="apps" size="5" required>
@@ -70,7 +71,7 @@
     <!-- <input type="submit" value="Execute SCION Client" /> -->
     <input type="button" value="Execute SCION Client"
      onclick="return launch();" /><input type="reset"
-     value="Reset the form">
+     value="Reset Fields">
     <p>
    </form>
    <div style="font-family: monospace; white-space: pre-line;">
@@ -83,13 +84,15 @@
   </div>
  </div>
  <script type="text/javascript">
+        var launchProg, imageText
+
         function launch() {
             // TODO (mwfarb): ensure validating without submit action
             // TODO (mwfarb): create user db of last submits per app, reload
             var i = 1;
             $("#results").text("Executing ");
             $('#results').append($("#apps :selected").text());
-            var launchProg = setInterval(function() {
+            launchProg = setInterval(function() {
                 $('#results').append('.');
                 i += 1;
             }, 500);
@@ -102,14 +105,24 @@
                     $('#images').load('/imglast', form_data);
                 }, 500);
                 // update image text each minute
-                var imageText = setInterval(function() {
+                imageText = setInterval(function() {
                     $('#image_text').load('/txtlast', form_data);
                 }, 60000);
             });
-            // TODO (mwfarb): reset form must clean out, itext, img
             // TODO (mwfarb): disable timer
             return true;
         }
+
+        function resetHandler() {
+            if (launchProg)
+                clearInterval(launchProg);
+            if (imageText)
+                clearInterval(imageText);
+            $("#results").empty();
+            $('#image_text').empty();
+            $('#images').empty();
+        }
+
         $(document).ready(function() {
             $.ajaxSetup({
                 cache : false
