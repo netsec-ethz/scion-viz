@@ -3,7 +3,6 @@
 <head>
 <meta charset="utf-8">
 <title>SCIONLab Go Tests</title>
-<script type="text/javascript" src="/static/js/jquery-2.2.0.min.js">
 <style>
 .output {
  float: top; height: 50%;
@@ -17,6 +16,7 @@
  content: ""; display: table; clear: both; overflow: scroll;
 }
 </style>
+<script type="text/javascript" src="static/js/jquery-2.2.0.min.js"></script>
 </head>
 <body>
  <h1>SCIONLab Go Tests</h1>
@@ -106,7 +106,6 @@
                     $('#image_text').load('/txtlast', form_data);
                 }, 60000);
             });
-            // TODO (mwfarb): local load of js libs
             // TODO (mwfarb): reset form must clean out, itext, img
             // TODO (mwfarb): disable timer
             return true;
@@ -117,7 +116,7 @@
             });
         });
     </script>
-<noscript>This form requires that you have javascript enabled
- to work properly please enable javascript in your browser.</noscript>
+ <noscript>This form requires that you have javascript
+  enabled to work properly please enable javascript in your browser.</noscript>
 </body>
 </html>

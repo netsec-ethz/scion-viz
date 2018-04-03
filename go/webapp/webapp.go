@@ -38,9 +38,11 @@ var regexImg = `([^\s]+(\.(?i)(jp?g|png|gif))$)`
 func main() {
     flag.Parse()
 
+    _, rootfile, _, _ := runtime.Caller(0)
     http.HandleFunc("/", mainHandler)
+    fsStatic := http.FileServer(http.Dir(path.Join(path.Dir(rootfile), "static")))
+    http.Handle("/static/", http.StripPrefix("/static/", fsStatic))
     http.Handle("/files/", http.StripPrefix("/files/", http.FileServer(http.Dir(*root))))
-    http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("/static"))))
     http.HandleFunc("/launch", launchHandler)
     http.HandleFunc("/imglast", findImageHandler)
     http.HandleFunc("/txtlast", findImageInfoHandler)
