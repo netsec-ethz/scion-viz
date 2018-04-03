@@ -69,7 +69,7 @@ python3 local-stats.py | go run stats-test-server.go -s 1-15,[127.0.0.5]:35555
 Now, from your webapp browser interface running on your virtual client SCION node,
 you can enter both client and server addresses and ask the client for remote stats.
 
-![Alt text](static/img/statstest.png?raw=true "Title")
+![Webapp Stats Test](static/img/statstest.png?raw=true "Webapp Stats Test")
 
 
 ### imagetest
@@ -82,8 +82,14 @@ On your remote SCION server node run (substituting your own address parameters):
 go run local-image.go | go run img-test-server.go -s 1-18,[127.0.0.8]:38887
 ```
 
+You may need golang.org's image package:
+
+```shell
+go get golang.org/x/image
+```
+
 Now, from your webapp browser interface running on your virtual client SCION node,
 you can enter both client and server addresses and ask the client for the most
 recently generated remote image.
 
-![Alt text](static/img/imagetest.png?raw=true "Title")
+![Webapp Image Test](static/img/imagetest.png?raw=true "Webapp Image Test")
