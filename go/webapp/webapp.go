@@ -43,7 +43,7 @@ func main() {
     fsStatic := http.FileServer(http.Dir(path.Join(path.Dir(rootfile), "static")))
     http.Handle("/static/", http.StripPrefix("/static/", fsStatic))
     http.Handle("/files/", http.StripPrefix("/files/", http.FileServer(http.Dir(*root))))
-    http.HandleFunc("/launch", launchHandler)
+    http.HandleFunc("/command", commandHandler)
     http.HandleFunc("/imglast", findImageHandler)
     http.HandleFunc("/txtlast", findImageInfoHandler)
 
@@ -69,7 +69,7 @@ func mainHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // Handles parsing SCION addresses to execute client app and write results.
-func launchHandler(w http.ResponseWriter, r *http.Request) {
+func commandHandler(w http.ResponseWriter, r *http.Request) {
     r.ParseForm()
     iaSer := r.PostFormValue("ia_ser")
     iaCli := r.PostFormValue("ia_cli")
@@ -101,7 +101,7 @@ func launchHandler(w http.ResponseWriter, r *http.Request) {
     pipeWriter.Close()
 }
 
-// Parses html selection and returns location of app to launch.
+// Parses html selection and returns location of app to run.
 func getClientLocation(appSel string) string {
     _, rootfile, _, _ := runtime.Caller(0)
     gopath := os.Getenv("GOPATH")

@@ -32,7 +32,7 @@
     <input type="submit" value="Browse File System" />
    </form>
    <p>
-   <form action="/launch" method="post" id="launch-form"
+   <form action="/command" method="post" id="command-form"
     onreset="resetHandler();">
     SCIONLab Client Tests
     <div>
@@ -70,7 +70,7 @@
     </div>
     <!-- <input type="submit" value="Execute SCION Client" /> -->
     <input type="button" value="Execute SCION Client"
-     onclick="return launch();" /><input type="reset"
+     onclick="return command();" /><input type="reset"
      value="Reset Fields">
     <p>
    </form>
@@ -84,29 +84,28 @@
   </div>
  </div>
  <script type="text/javascript">
-        var launchProg, imageText
+        var commandProg, imageTextTimer
 
-        function launch() {
+        function command() {
             // TODO (mwfarb): ensure validating without submit action
             // TODO (mwfarb): create user db of last submits per app, reload
             var i = 1;
             $("#results").text("Executing ");
             $('#results').append($("#apps :selected").text());
-            launchProg = setInterval(function() {
+            commandProg = setInterval(function() {
                 $('#results').append('.');
                 i += 1;
             }, 500);
-            var form_data = $('#launch-form').serializeArray();
-            $('#results').load('/launch', form_data, function() {
-                clearInterval(launchProg);
-                // check for new images once, on launch complete
+            var form_data = $('#command-form').serializeArray();
+            $('#results').load('/command', form_data, function() {
+                clearInterval(commandProg);
+                // check for new images once, on command complete
                 setTimeout(function() {
                     $('#image_text').load('/txtlast', form_data);
                     $('#images').load('/imglast', form_data);
                 }, 500);
                 // update image text each minute
-                imageText = setInterval(function() {
-                    $('#image_text').load('/txtlast', form_data);
+                imageTextTimer = setInterval(function() {
                 }, 60000);
             });
             // TODO (mwfarb): disable timer
@@ -114,10 +113,10 @@
         }
 
         function resetHandler() {
-            if (launchProg)
-                clearInterval(launchProg);
-            if (imageText)
-                clearInterval(imageText);
+            if (commandProg)
+                clearInterval(commandProg);
+            if (imageTextTimer)
+                clearInterval(imageTextTimer);
             $("#results").empty();
             $('#image_text').empty();
             $('#images').empty();

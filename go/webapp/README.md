@@ -12,13 +12,14 @@ experiment with SCIONLab test apps on a virtual machine.
 To run the Go Web UI at default localhost 127.0.0.1:8000 run:
 
 ```shell
-go run webapp/webapp.go
+go run webapp.go
 ```
 
 ### SCIONLab Virtual Machine
 
 Using vagrant, make sure to edit your `vagrantfile` to provision the additional port
-for the Go web server by adding this line for port 8080:
+for the Go web server by adding this line for port 8080 (for example, just choose any forwarding
+port not already in use by vagrant):
 
 ```
 config.vm.network "forwarded_port", guest: 8080, host: 8080, protocol: "tcp"
@@ -27,7 +28,7 @@ config.vm.network "forwarded_port", guest: 8080, host: 8080, protocol: "tcp"
 To run the Go Web UI at a specific address (-a) and port (-p) like 0.0.0.0:8080 for a SCIONLabVM use:
 
 ```shell
-go run webapp/webapp.go -a 0.0.0.0 -p 8080 -r .
+go run webapp.go -a 0.0.0.0 -p 8080 -r .
 ```
 
 Now, open a web browser at http://127.0.0.1:8080, to begin.
@@ -76,16 +77,17 @@ you can enter both client and server addresses and ask the client for remote sta
 
 This hardware-independent test will generate an image with some remote machine stats from
 the Go app `local-image.go`, which will be saved locally for transmission to clients.
+
+You may need golang.org's image package first:
+
+```shell
+go get golang.org/x/image
+```
+
 On your remote SCION server node run (substituting your own address parameters):
 
 ```shell
 go run local-image.go | go run img-test-server.go -s 1-18,[127.0.0.8]:38887
-```
-
-You may need golang.org's image package:
-
-```shell
-go get golang.org/x/image
 ```
 
 Now, from your webapp browser interface running on your virtual client SCION node,
