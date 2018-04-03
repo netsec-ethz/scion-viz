@@ -33,7 +33,7 @@ var cmdBufLen = 1024
 var imgTemplate = `<!doctype html><html lang="en"><head></head>
 <body><img src="data:image/jpg;base64,{{.Image}}"></body>`
 
-var regexImg = `([^\s]+(\.(?i)(jp?g|png|gif))$)`
+var regexImageFiles = `([^\s]+(\.(?i)(jp?g|png|gif))$)`
 
 func main() {
     flag.Parse()
@@ -84,6 +84,7 @@ func commandHandler(w http.ResponseWriter, r *http.Request) {
     filepath := getClientLocation(appSel)
     if filepath == "" {
         fmt.Fprintf(w, "Unknown SCION client app. Is one selected?")
+        return
     }
     optClient := fmt.Sprintf("-c=%s", fmt.Sprintf("%s,[%s]:%s", iaCli, addrCli, portCli))
     optServer := fmt.Sprintf("-s=%s", fmt.Sprintf("%s,[%s]:%s", iaSer, addrSer, portSer))
@@ -177,8 +178,8 @@ func writeJpegTemplate(w http.ResponseWriter, img *image.Image) {
     }
 }
 
-// Helper method to find most recently modified regex extRegEx filename in dir.
-func findNewestImage(dir, extRegEx string) (imgFilename string, imgTimestamp int64) {
+// Helper method to find most recently modified regex extension filename in dir.
+func findNewestFileExt(dir, extRegEx string) (imgFilename string, imgTimestamp int64) {
     files, _ := ioutil.ReadDir(dir)
     for _, f := range files {
         fi, err := os.Stat(path.Join(dir, f.Name()))
@@ -221,7 +222,7 @@ func findImageInfoHandler(w http.ResponseWriter, r *http.Request) {
     r.ParseForm()
     filesDir := path.Dir(getClientLocation(r.PostFormValue("apps")))
 
-    imgFilename, imgTimestamp := findNewestImage(filesDir, regexImg)
+    imgFilename, imgTimestamp := findNewestFileExt(filesDir, regexImageFiles)
     if imgFilename == "" {
         return
     }
@@ -235,7 +236,7 @@ func findImageHandler(w http.ResponseWriter, r *http.Request) {
     r.ParseForm()
     filesDir := path.Dir(getClientLocation(r.PostFormValue("apps")))
 
-    imgFilename, _ := findNewestImage(filesDir, regexImg)
+    imgFilename, _ := findNewestFileExt(filesDir, regexImageFiles)
     if imgFilename == "" {
         return
     }
