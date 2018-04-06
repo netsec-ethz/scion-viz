@@ -1,0 +1,165 @@
+--- # Tiny Topology
+defaults:
+  zookeepers:
+    1:
+      manage: false
+      addr: 127.0.0.1
+ASes:
+  1-11:
+    core: true
+  1-12:
+    cert_issuer: 1-11
+  1-15:
+    cert_issuer: 1-11
+  1-14:
+    cert_issuer: 1-11
+  1-16:
+    cert_issuer: 1-11
+  1-13:
+    cert_issuer: 1-11
+  1-18:
+    cert_issuer: 1-11
+  1-17:
+    cert_issuer: 1-11
+  1-19:
+    cert_issuer: 1-11
+  1-101:
+    cert_issuer: 1-11
+  1-103:
+    cert_issuer: 1-11
+  1-102:
+    cert_issuer: 1-11
+  1-1059:
+    cert_issuer: 1-11
+  1-1077:
+    cert_issuer: 1-11
+
+  2-21:
+    core: true
+  2-22:
+    cert_issuer: 2-21
+  2-23:
+    cert_issuer: 2-21
+  2-24:
+    cert_issuer: 2-21
+  2-25:
+    cert_issuer: 2-21
+
+  3-31:
+    core: true
+
+  4-41:
+    core: true
+
+  42-1:
+    core: true
+  42-2:
+    cert_issuer: 42-1
+  42-4:
+    cert_issuer: 42-1
+  42-3:
+    cert_issuer: 42-1
+  42-8:
+    cert_issuer: 42-1
+  42-5:
+    cert_issuer: 42-1
+  42-6:
+    cert_issuer: 42-1
+  42-7:
+    cert_issuer: 42-1
+
+  5-51:
+    core: true
+
+  6-61:
+    core: true
+
+  7-71:
+    core: true
+
+links:
+  - {a: 1-11, b: 1-12, ltype: PARENT}
+  - {a: 1-11, b: 1-13, ltype: PARENT}
+  - {a: 1-11, b: 1-15, ltype: PARENT}
+  - {a: 1-11, b: 1-14, ltype: PARENT}
+  - {a: 1-11, b: 2-21, ltype: CORE}
+  - {a: 1-11, b: 3-31, ltype: CORE}
+  - {a: 1-11, b: 7-71, ltype: CORE}
+  - {a: 1-11, b: 42-1, ltype: CORE}
+  - {a: 1-12, b: 1-13, ltype: PARENT}
+  - {a: 1-12, b: 1-16, ltype: PARENT}
+  - {a: 1-15, b: 1-18, ltype: PARENT}
+  - {a: 1-16, b: 1-17, ltype: PARENT}
+  - {a: 1-16, b: 1-19, ltype: PARENT}
+  - {a: 1-18, b: 1-101, ltype: PARENT}
+  - {a: 1-18, b: 1-103, ltype: PARENT}
+  - {a: 1-18, b: 1-102, ltype: PARENT}
+  - {a: 1-17, b: 1-1059, ltype: PEER}
+  - {a: 1-17, b: 1-1077, ltype: PEER}
+
+  - {a: 2-21, b: 3-31, ltype: CORE}
+  - {a: 2-21, b: 42-3, ltype: CORE}
+  - {a: 2-21, b: 42-4, ltype: CORE}
+  - {a: 2-21, b: 2-22, ltype: PARENT}
+  - {a: 2-21, b: 2-23, ltype: PARENT}
+  - {a: 2-23, b: 2-24, ltype: PARENT}
+  - {a: 2-23, b: 2-25, ltype: PARENT}
+
+  - {a: 3-31, b: 42-1, ltype: CORE}
+  - {a: 3-31, b: 42-2, ltype: CORE}
+
+  - {a: 4-41, b: 7-71, ltype: CORE}
+  - {a: 4-41, b: 42-6, ltype: CORE}
+
+  - {a: 5-51, b: 42-2, ltype: CORE}
+  - {a: 5-51, b: 42-6, ltype: CORE}
+  - {a: 5-51, b: 6-61, ltype: CORE}
+
+  - {a: 6-61, b: 42-2, ltype: CORE}
+  - {a: 6-61, b: 42-6, ltype: CORE}
+
+  - {a: 7-71, b: 4-41, ltype: CORE}
+  - {a: 7-71, b: 42-7, ltype: CORE}
+
+  - {a: 42-2, b: 42-6, ltype: CORE}
+  - {a: 42-2, b: 42-1, ltype: CORE}
+  - {a: 42-2, b: 42-3, ltype: CORE}
+  - {a: 42-4, b: 42-1, ltype: CORE}
+  - {a: 42-4, b: 42-3, ltype: CORE}
+  - {a: 42-4, b: 42-5, ltype: CORE}
+  - {a: 42-3, b: 42-1, ltype: CORE}
+  - {a: 42-3, b: 42-5, ltype: CORE}
+  - {a: 42-8, b: 42-1, ltype: CORE}
+  - {a: 42-8, b: 42-6, ltype: CORE}
+  - {a: 42-8, b: 42-5, ltype: CORE}
+  - {a: 42-1, b: 42-7, ltype: CORE}
+  - {a: 42-1, b: 42-6, ltype: CORE}
+  - {a: 42-5, b: 42-6, ltype: CORE}
+  - {a: 42-5, b: 42-7, ltype: CORE}
+  - {a: 42-6, b: 42-7, ltype: CORE}
+
+CAs:
+  CA1-1:
+    ISD: 1
+    commonName: CA1-1
+  CA2-1:
+    ISD: 2
+    commonName: CA2-1
+  CA3-1:
+    ISD: 3
+    commonName: CA3-1
+  CA4-1:
+    ISD: 4
+    commonName: CA4-1
+  CA5-1:
+    ISD: 5
+    commonName: CA5-1
+  CA6-1:
+    ISD: 6
+    commonName: CA6-1
+  CA7-1:
+    ISD: 7
+    commonName: CA7-1
+  CA42-1:
+    ISD: 42
+    commonName: CA42-1

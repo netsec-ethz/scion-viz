@@ -1,0 +1,98 @@
+---
+defaults:
+  zookeepers:
+    1:
+      manage: false
+      addr: 127.0.0.1
+
+ASes:
+  1-11: {core: true}
+  1-12: {core: true}
+  1-13: {cert_issuer: 1-11}
+  1-14: {cert_issuer: 1-12}
+  42-21: {core: true}
+  42-22: {core: true}
+  42-23: {cert_issuer: 42-22}
+  42-24: {cert_issuer: 42-22}
+  3-31: {core: true}
+  3-33: {cert_issuer: 3-31}
+  3-34: {cert_issuer: 3-31}
+  3-35: {cert_issuer: 3-31}
+  4-41: {core: true}
+  5-51: {core: true}
+  5-52: {core: true}
+  5-53: {core: true}
+  5-54: {cert_issuer: 5-51}
+  5-55: {cert_issuer: 5-53}
+CAs:
+  CA1-11:
+    ISD: 1
+    commonName: CA1-11
+  CA1-12:
+    ISD: 1
+    commonName: CA1-12
+  CA1-13:
+    ISD: 1
+    commonName: CA1-13
+  CA42-21:
+    ISD: 2
+    commonName: CA42-21
+  CA42-22:
+    ISD: 2
+    commonName: CA42-22
+  CA42-23:
+    ISD: 2
+    commonName: CA42-23
+  CA3-31:
+    ISD: 3
+    commonName: CA3-31
+  CA3-32:
+    ISD: 3
+    commonName: CA3-32
+  CA3-33:
+    ISD: 3
+    commonName: CA3-33
+  CA4-41:
+    ISD: 4
+    commonName: CA4-41
+  CA4-42:
+    ISD: 4
+    commonName: CA4-42
+  CA4-43:
+    ISD: 4
+    commonName: CA4-43
+  CA5-51:
+    ISD: 5
+    commonName: CA5-51
+  CA5-52:
+    ISD: 5
+    commonName: CA5-52
+  CA5-53:
+    ISD: 5
+    commonName: CA5-53
+links:
+  - {a: 1-11, b: 1-12, ltype: CORE}
+  - {a: 1-11, b: 42-21, ltype: CORE}
+  - {a: 1-11, b: 42-22, ltype: CORE}
+  - {a: 1-11, b: 3-31, ltype: CORE}
+  - {a: 1-11, b: 1-13, ltype: PARENT}
+  - {a: 1-12, b: 42-21, ltype: CORE}
+  - {a: 1-12, b: 1-14, ltype: PARENT}
+  - {a: 1-13, b: 1-14, ltype: PEER}
+  - {a: 1-13, b: 3-33, ltype: PEER}
+  - {a: 42-21, b: 42-22, ltype: CORE}
+  - {a: 42-21, b: 3-31, ltype: CORE}
+  - {a: 42-21, b: 42-23, ltype: PARENT}
+  - {a: 42-21, b: 42-24, ltype: PARENT}
+  - {a: 42-22, b: 42-23, ltype: PARENT}
+  - {a: 42-22, b: 42-24, ltype: PARENT}
+  - {a: 42-23, b: 42-24, ltype: PEER}
+  - {a: 3-31, b: 4-41, ltype: CORE}
+  - {a: 3-31, b: 3-33, ltype: PARENT}
+  - {a: 3-33, b: 3-34, ltype: PARENT}
+  - {a: 3-33, b: 3-35, ltype: PARENT}
+  - {a: 4-41, b: 5-52, ltype: CORE}
+  - {a: 5-51, b: 5-52, ltype: CORE}
+  - {a: 5-51, b: 5-54, ltype: PARENT}
+  - {a: 5-52, b: 5-53, ltype: CORE}
+  - {a: 5-53, b: 5-55, ltype: PARENT}

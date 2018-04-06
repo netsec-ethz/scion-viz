@@ -23,12 +23,12 @@ import logging
 import os
 import subprocess
 import time
+from datetime import timedelta
 from os.path import dirname as dir
 
 import lib.app.sciond as lib_sciond
 from lib.app.sciond import SCIONDConnectionError, SCIONDResponseError
-from lib.crypto.certificate_chain import get_cert_chain_file_path
-from lib.crypto.trc import get_trc_file_path
+from lib.crypto.util import CERT_DIR
 from lib.defines import (
     AS_CONF_FILE,
     GEN_PATH,
@@ -38,11 +38,11 @@ from lib.defines import (
 from lib.errors import SCIONBaseError
 from lib.packet.host_addr import HostAddrIPv4
 from lib.packet.scion_addr import ISD_AS
-from lib.sciond_api.segment_req import SCIONDSegTypeHopReplyEntry
 from lib.types import (
     PathSegmentType as PST,
     ServiceType,
 )
+from lib.util import iso_timestamp
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SCION_ROOT = dir(dir(BASE_DIR))
@@ -105,8 +105,9 @@ def print_as_viewer_info(addr):
     '''
     try:
         # init connection to sciond
+        ia = str(s_isd_as).split("-")
         conf_dir = "%s/%s/ISD%s/AS%s/endhost" % (
-            SCION_ROOT, GEN_PATH, s_isd_as._isd, s_isd_as._as)
+            SCION_ROOT, GEN_PATH, ia[0], ia[1])
         sock_file = os.path.join(SCIOND_API_SOCKDIR, "sd%s.sock" % s_isd_as)
         connector[s_isd_as] = lib_sciond.init(sock_file)
         logging.info(connector[s_isd_as]._api_addr)
@@ -129,9 +130,9 @@ def print_as_viewer_info(addr):
         if args.pp:  # path policy
             print_yml(os.path.join(conf_dir, PATH_POLICY_FILE))
         if args.trc:  # TRC
-            print_json(get_trc_file_path(conf_dir, s_isd_as._isd, 0))
+            print_json_files(findCerts(conf_dir, ".trc"))
         if args.crt:  # cert chain
-            print_json(get_cert_chain_file_path(conf_dir, s_isd_as, 0))
+            print_json_files(findCerts(conf_dir, ".crt"))
         if args.s:  # segments
             print_segments_summary(s_isd_as, connector)
     except (SCIONBaseError, AttributeError) as err:
@@ -144,9 +145,10 @@ def launch_sciond(sock_file, addr):
     localhost.
     '''
     # we need an asynchronous call, use Popen()
+    ia = str(s_isd_as).split("-")
     cmd = 'cd %s && python/bin/sciond --api-addr /run/shm/sciond/sd%s.sock sd%s \
         gen/ISD%s/AS%s/endhost' % (
-        SCION_ROOT, s_isd_as, s_isd_as, s_isd_as._isd, s_isd_as._as)
+        SCION_ROOT, s_isd_as, s_isd_as, ia[0], ia[1])
     if addr and addr != '':
         cmd = '%s --addr %s' % (cmd, addr)
     logging.info("Listening for sciond: %s" % cmd)
@@ -166,14 +168,27 @@ def print_yml(path):
     logging.info(file.read())
 
 
-def print_json(path):
+def print_json_files(paths):
     '''
-    Prints the contents of the json file with indentations.
+    Prints the contents of json files with indentations.
     '''
-    logging.info(path)
-    with open(path, 'r') as fin:
-        parsed = json.load(fin)
-    logging.info(json.dumps(parsed, indent=4))
+    for path in paths:
+        logging.info(path)
+        with open(path, 'r') as fin:
+            parsed = json.load(fin)
+        logging.info(json.dumps(parsed, indent=4))
+
+
+def findCerts(conf_dir, extension):
+    '''
+    Returns all cert paths based on extension.
+    '''
+    certs = []
+    certDir = os.path.join(conf_dir, CERT_DIR)
+    for file in os.listdir(certDir):
+        if file.endswith(extension):
+            certs.append(os.path.join(certDir, file))
+    return certs
 
 
 def print_as_topology(s_isd_as, connector):
@@ -227,8 +242,8 @@ def print_paths(s_isd_as, d_isd_as, connector):
         for interface in path.p.path.interfaces:
             isd_as = ISD_AS(interface.isdas)
             link = interface.ifID
-            logging.info("%s-%s (%s)" %
-                         (isd_as._isd, isd_as._as, link))
+            logging.info("%s (%s)" %
+                         (str(isd_as), link))
 
         i += 1
 
@@ -247,12 +262,12 @@ def print_segments_summary(s_isd_as, connector):
         PST.UP, connector=connector[s_isd_as])
     dsegs = lib_sciond.get_segtype_hops(
         PST.DOWN, connector=connector[s_isd_as])
-    print_enum_segments(csegs, "CORE")
+    print_enum_segments(csegs, "CORE", True)
     print_enum_segments(dsegs, "DOWN")
-    print_enum_segments(usegs, "UP")
+    print_enum_segments(usegs, "UP", True)
 
 
-def print_enum_segments(segs, type):
+def print_enum_segments(segs, type, rev=False):
     '''
     Generic method to print array of segments
     :param segs: Array of segments.
@@ -260,8 +275,17 @@ def print_enum_segments(segs, type):
     '''
     segidx = 1
     for seg in segs:
-        seg_str = SCIONDSegTypeHopReplyEntry(seg.p).short_desc()
-        logging.info("%s %s\t%s" % (type, segidx, seg_str))
+        desc = []
+        remain = seg.p.expTime - seg.p.timestamp
+        desc.append("%s, %s" % (iso_timestamp(
+            seg.p.timestamp), timedelta(seconds=remain)))
+        if rev:
+            ifs = list(reversed(seg.p.interfaces))
+        else:
+            ifs = seg.p.interfaces
+        for if_ in ifs:
+            desc.append(", %s:%s" % (ISD_AS(if_.isdas), if_.ifID))
+        logging.info("%s %s\t%s" % (type, segidx, "".join(desc)))
         segidx += 1
 
 

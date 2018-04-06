@@ -45,7 +45,8 @@ var possible_colors = {
 var default_link_color = "#999999";
 var default_link_opacity = "0.35";
 var p_link_dist = 70; // paths link distance
-var p_r = 20; // path node radius
+var p_link_dist_long = 80; // long paths link distance
+var p_r = 23; // path node radius
 var pt_w = 90; // text node rect width
 var pt_h = 35; // text node rect height
 var pt_r = 4; // text node rect corner radius
@@ -53,6 +54,8 @@ var pl_w = 20; // path legend width
 var ph_h = 25; // path title header height
 var ph_m = 5; // path title header margin
 var ph_p = ph_h + ph_m; // path title header padding
+var short_as_len = 6; // number of AS characters to display
+var short_as_node = true; // true: circle, short AS; false: oval, long AS
 
 var pageBounds;
 var circlesg;
@@ -188,8 +191,10 @@ function drawTopology(div_id, original_json_data, segs, width, height) {
     console.log(JSON.stringify(graphPath));
 
     colorPath = d3.scale.category20();
-    colaPath = cola.d3adaptor().linkDistance(p_link_dist).avoidOverlaps(true)
-            .handleDisconnected(true).size([ width, height ]).alpha(0);
+    p_link_dist = short_as_node ? p_link_dist : p_link_dist_long;
+    colaPath = cola.d3adaptor().jaccardLinkLengths(p_link_dist)
+            .convergenceThreshold(1e-3).avoidOverlaps(true).handleDisconnected(
+                    true).size([ width, height ]);
 
     svgPath = d3.select("#" + div_id).append("svg").attr("width", width).attr(
             "height", height);
@@ -292,12 +297,11 @@ function update() {
             graphPath.nodes)
 
     var path = linesg.selectAll("path.link").data(graphPath.links)
-    path.enter().append("path").attr(
-            "class",
-            function(d) {
-                return d.type + " link " + "source-" + d.source.name
-                        + " target-" + d.target.name;
-            }).attr("stroke", default_link_color).attr("stroke-opacity",
+    path.enter().append("path").attr("class", function(d) {
+        var src = "source-" + d.source.name;
+        var dst = "target-" + d.target.name;
+        return d.type + " link " + src + " " + dst;
+    }).attr("stroke", default_link_color).attr("stroke-opacity",
             default_link_opacity);
     path.exit().remove();
 
@@ -328,17 +332,25 @@ function update() {
     }).call(colaPath.drag).attr("transform", nodeTransform);
 
     nodeg.append("rect").attr("width", function(d) {
-        return (d.type == "host") ? pt_w : (2 * p_r)
+        if (short_as_node) {
+            return (d.type == "host") ? pt_w : (2 * p_r)
+        } else {
+            return (d.type == "host") ? pt_w : labelWidth(d.name);
+        }
     }).attr("height", function(d) {
         return (d.type == "host") ? pt_h : (2 * p_r)
     }).attr("rx", function(d) {
-        return (d.type == "host") ? pt_r : (2 * p_r)
+        return (d.type == "host") ? pt_r : p_r
     }).attr("ry", function(d) {
-        return (d.type == "host") ? pt_r : (2 * p_r)
+        return (d.type == "host") ? pt_r : p_r
     }).attr("x", function(d) {
-        return (d.type == "host") ? -pt_w / 2 : -p_r
+        if (short_as_node) {
+            return -((d.type == "host") ? pt_w / 2 : p_r)
+        } else {
+            return -((d.type == "host") ? pt_w : labelWidth(d.name)) / 2;
+        }
     }).attr("y", function(d) {
-        return (d.type == "host") ? -pt_h / 2 : -p_r
+        return -((d.type == "host") ? pt_h / 2 : p_r)
     }).style("fill", function(d) {
         return (d.type == "host") ? "white" : colorPath(d.group);
     }).style("visibility", function(d) {
@@ -349,9 +361,26 @@ function update() {
             "class", function(d) {
                 return d.type + " label";
             }).text(function(d) {
-        return d.name
+        if (isNodeShortened(d)) {
+            return d.name.substring(d.name.length - short_as_len);
+        } else {
+            return d.name;
+        }
     }).style("visibility", function(d) {
         return (d.type == "placeholder") ? "hidden" : "visible";
+    });
+
+    // tooltip for long AS names
+    node.on("mouseover", function(d) {
+        var g = d3.select(this);
+        var info = g.append('text').classed('info', true).attr('x',
+                -labelWidth(d.name) / 2).attr('y', -p_r - ph_m).style(
+                "font-size", "12px").text(function(d) {
+            return isNodeShortened(d) ? d.name : "";
+        });
+    })
+    node.on("mouseout", function() {
+        d3.select(this).select('text.info').remove();
     });
 
     node.exit().remove();
@@ -363,7 +392,23 @@ function update() {
         node.attr("transform", nodeTransform);
     });
 
-    colaPath.start(10, 15, 20)
+    colaPath.start(50, 100, 200);
+}
+
+/*
+ * Determines if name of node has been shortened.
+ */
+function isNodeShortened(d) {
+    return (short_as_node && d.name.length > short_as_len && d.type != "host");
+}
+
+/*
+ * Gets pixel width of node based on label size, includes radius as basis of
+ * minumim width.
+ */
+function labelWidth(label) {
+    calc = label.length * 6.5;
+    return calc > (2 * p_r) ? calc : (2 * p_r);
 }
 
 /*

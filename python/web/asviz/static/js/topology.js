@@ -27,9 +27,9 @@ var LinkType = {
     Child : 'CHILD',
 };
 
-var ISDAS = new RegExp("^[0-9]*-[0-9]*$");
-var ISD = new RegExp("^[0-9]*");
-var AS = new RegExp("[0-9]*$");
+var ISDAS = new RegExp("^[0-9]+-[0-9a-fA-F_:\/]+$");
+var ISD = new RegExp("^[0-9]+");
+var AS = new RegExp("[0-9a-fA-F_:\/]+$");
 
 /*
  * Retrieve given ID because the link will consist of source-target or
@@ -62,8 +62,8 @@ function getPathId(source, target) {
  * Placeholder nodes ensure dark/light node color patterns will be consistent
  * and always shift the color scheme by 2: 1 core, 1 not-core.
  */
-function addPlaceholderNode(graph, n, core) {
-    var name = (n + 1) + "-" + (n + 100 + core);
+function addPlaceholderNode(graph, isd, core) {
+    var name = isd + "-" + (parseInt(isd) + 100 + core);
     var group = ((ISD.exec(name) - 1) * 4) + core;
     graph["nodes"].push({
         name : name,
@@ -78,16 +78,17 @@ function addPlaceholderNode(graph, n, core) {
  */
 function sortTopologyGraph(graph) {
     // add placeholder nodes for consistent coloring
-    var maxIsd = 0;
+    var isds = [];
     for (var n = 0; n < graph.nodes.length; n++) {
-        var isd = ISD.exec(graph.nodes[n].name);
-        if (isd > maxIsd) {
-            maxIsd = isd;
+        var isd = graph.nodes[n].name.split("-")[0];
+        if (!isds.includes(isd)) {
+            isds.push(isd);
         }
     }
-    for (var n = 0; n < maxIsd; n++) {
-        addPlaceholderNode(graph, n, 0);
-        addPlaceholderNode(graph, n, 1);
+    isds.sort();
+    for (var n = 0; n < isds.length; n++) {
+        addPlaceholderNode(graph, isds[n], 0);
+        addPlaceholderNode(graph, isds[n], 1);
     }
     // sort for optimal color coding display
     graph.nodes.sort(function(a, b) {
