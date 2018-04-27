@@ -105,10 +105,11 @@ def print_as_viewer_info(addr):
     '''
     try:
         # init connection to sciond
-        ia = str(s_isd_as).split("-")
+        isd_file, as_file = parse_isdas(s_isd_as, file=True)
         conf_dir = "%s/%s/ISD%s/AS%s/endhost" % (
-            SCION_ROOT, GEN_PATH, ia[0], ia[1])
-        sock_file = os.path.join(SCIOND_API_SOCKDIR, "sd%s.sock" % s_isd_as)
+            SCION_ROOT, GEN_PATH, isd_file, as_file)
+        sock_file = os.path.join(
+            SCIOND_API_SOCKDIR, "sd%s-%s.sock" % (isd_file, as_file))
         connector[s_isd_as] = lib_sciond.init(sock_file)
         logging.info(connector[s_isd_as]._api_addr)
         try:  # test if sciond is already running for this AS
@@ -144,11 +145,11 @@ def launch_sciond(sock_file, addr):
     Launch sciond process with or without optional IP address when not using
     localhost.
     '''
+    isd_file, as_file = parse_isdas(s_isd_as, file=True)
     # we need an asynchronous call, use Popen()
-    ia = str(s_isd_as).split("-")
-    cmd = 'cd %s && python/bin/sciond --api-addr /run/shm/sciond/sd%s.sock sd%s \
+    cmd = 'cd %s && python/bin/sciond --api-addr /run/shm/sciond/sd%s-%s.sock sd%s-%s \
         gen/ISD%s/AS%s/endhost' % (
-        SCION_ROOT, s_isd_as, s_isd_as, ia[0], ia[1])
+        SCION_ROOT, isd_file, as_file, isd_file, as_file, isd_file, as_file)
     if addr and addr != '':
         cmd = '%s --addr %s' % (cmd, addr)
     logging.info("Listening for sciond: %s" % cmd)
@@ -371,6 +372,24 @@ def organize_topo(t):
         'PEER_IF': t.peer_interfaces,
         'ZOOKEEPER': t.zookeepers,
     }
+
+
+def parse_isdas(isd_as, file=False):
+    '''
+    Parses ISD_AS object for UI and file-friendly ISD-AS pairs.
+    :param isd_as: ISD_AS object.
+    '''
+    try:
+        isd = isd_as.isd_str()
+        if file:
+            as_ = isd_as.as_file_fmt()
+        else:
+            as_ = isd_as.as_str()
+    except (AttributeError) as err:
+        logging.warn(err)
+        isd = isd_as._isd
+        as_ = isd_as._as
+    return isd, as_
 
 
 # parse commands, query sciond, display results

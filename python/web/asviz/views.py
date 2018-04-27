@@ -122,10 +122,10 @@ def get_json_segments(segs):
     for seg in segs:
         core = []
         for interface in seg.p.interfaces:
-            ia = str(ISD_AS(interface.isdas)).split("-")
+            isd_ui, as_ui = parse_isdas(ISD_AS(interface.isdas))
             core.append({
-                "ISD": ia[0],
-                "AS": ia[1],
+                "ISD": isd_ui,
+                "AS": as_ui,
                 "IFID": interface.ifID,
             })
         cores.append({
@@ -160,10 +160,10 @@ def get_json_paths(paths):
         logging.debug(path.__dict__)
         core = []
         for interface in path.p.path.interfaces:
-            ia = str(ISD_AS(interface.isdas)).split("-")
+            isd_ui, as_ui = parse_isdas(ISD_AS(interface.isdas))
             core.append({
-                "ISD": ia[0],
-                "AS": ia[1],
+                "ISD": isd_ui,
+                "AS": as_ui,
                 "IFID": interface.ifID,
             })
         cores.append({
@@ -721,10 +721,10 @@ def set_param(request, name, default):
 
 def launch_sciond(sock_file, addr, s_isd_as):
     # we need an asynchronous call, use Popen()
-    ia = str(s_isd_as).split("-")
+    isd_file, as_file = parse_isdas(s_isd_as, file=True)
     cmd = 'cd %s && python/bin/sciond --api-addr /run/shm/sciond/sd%s.sock \
         sd%s gen/ISD%s/AS%s/endhost' % (
-        SCION_ROOT, s_isd_as, s_isd_as, ia[0], ia[1])
+        SCION_ROOT, s_isd_as, s_isd_as, isd_file, as_file)
     if addr and addr != '':
         cmd = '%s --addr %s' % (cmd, addr)
     logging.info("Listening for sciond: %s" % cmd)
@@ -745,6 +745,24 @@ def findCerts(conf_dir, extension):
         if file.endswith(extension):
             certs.append(os.path.join(certDir, file))
     return certs
+
+
+def parse_isdas(isd_as, file=False):
+    '''
+    Parses ISD_AS object for UI and file-friendly ISD-AS pairs.
+    :param isd_as: ISD_AS object.
+    '''
+    try:
+        isd = isd_as.isd_str()
+        if file:
+            as_ = isd_as.as_file_fmt()
+        else:
+            as_ = isd_as.as_str()
+    except (AttributeError) as err:
+        logging.warn(err)
+        isd = isd_as._isd
+        as_ = isd_as._as
+    return isd, as_
 
 
 def index(request):
@@ -816,9 +834,9 @@ def index(request):
             p['json_crt'] = (
                 "Certificate information for sciond not yet implemented.")
         elif (p['data'] == 'file'):
-            ia = str(s_isd_as).split("-")
+            isd_file, as_file = parse_isdas(s_isd_as, file=True)
             conf_dir = "%s/%s/ISD%s/AS%s/endhost" % (
-                SCION_ROOT, GEN_PATH, ia[0], ia[1])
+                SCION_ROOT, GEN_PATH, isd_file, as_file)
             t = Topology.from_file(os.path.join(conf_dir, TOPO_FILE))
             topo = organize_topo(t)
             p['json_as_topo'] = json.dumps(get_json_as_topology(t, topo))
