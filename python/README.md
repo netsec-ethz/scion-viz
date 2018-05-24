@@ -1,6 +1,6 @@
 # SCION AS Visualization
 
-These are temporary instructions until the appropriate place is located on an updated deployment server. Some or all of these tools may end up migrating to another repository if need be.
+These are instructions for setting up this repo within the scion infrastructure to view visual SCION Daemon data from an AS deployment or test environment.
 
 1. Clone [scion](https://github.com/netsec-ethz/scion) and submodules to an appropriate local dir like `$GOPATH/src/github.com/netsec-ethz/scion`.
 1. Execute the install update script:
@@ -21,4 +21,10 @@ To run Django web UI at default localhost 127.0.0.1:8000 use:
 
     ```
     python3 python/web/manage.py runserver
+    ```
+
+To run Django web UI at a specific address and port like 10.2.0.15:8000 use:
+
+    ```
+    python3 python/web/manage.py runserver 10.2.0.15 8000
     ```
