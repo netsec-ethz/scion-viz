@@ -61,8 +61,9 @@
     <div id="as-menu">
      <div id='as-select'>
       Source AS: <input type="text" name="src" required
-       placeholder="1-1" pattern="^[0-9]*-[0-9]*$" value="{{ src }}"
-       style="width: 60px;"> Data: <select id="data" name="data"
+       placeholder="1-1" pattern="^[0-9]+-[0-9a-fA-F_:\/]+$"
+       value="{{ src }}" style="width: 120px;"> Data: <select
+       id="data" name="data"
        onchange="$('#tab').val(activeTab); this.form.submit();">
        <option value="sdapi">sciond socket</option>
        <option value="file">local gen dir</option>
@@ -73,7 +74,7 @@
        SCIOND IP Address: <input type="text" name="addr"
         placeholder="127.0.0.1"
         pattern="((^|\.)((25[0-5])|(2[0-4]\d)|(1\d\d)|([1-9]?\d))){4}$"
-        value="{{ addr }}" style="width: 100px;">
+        value="{{ addr }}" style="width: 120px;">
       </div>
      </div>
     </div>
@@ -116,8 +117,8 @@
         <div>
          <label for="dst">Destination AS:</label> <input type="text"
           id="dst" name="dst" placeholder="2-21"
-          pattern="^[0-9]*-[0-9]*$" value="{{ dst }}"
-          style="width: 60px;"> <label for="mp">Max
+          pattern="^[0-9]+-[0-9a-fA-F_:\/]+$" value="{{ dst }}"
+          style="width: 120px;"> <label for="mp">Max
           Paths:</label> <input id="mp" name="mp" type="number" min="1"
           value="{{ mp }}" style="width: 45px;"> <input
           type="submit" value="Update Paths"

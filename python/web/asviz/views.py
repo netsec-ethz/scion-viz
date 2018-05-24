@@ -89,8 +89,7 @@ def html_paths(s, paths):
         for interface in path.p.path.interfaces:
             isd_as = ISD_AS(interface.isdas)
             link = interface.ifID
-            list_add(s, "%s-%s (%s)" %
-                     (isd_as._isd, isd_as._as, link))
+            list_add(s, "%s (%s)" % (str(isd_as), link))
         i += 1
         indent_close(s)
 
@@ -100,18 +99,18 @@ def html_all_segments(s, csegs, usegs, dsegs):
     Formats all segments into nested html.
     '''
     # enumerate segments
-    html_segment(csegs, s, "CORE", "purple")
-    html_segment(dsegs, s, "DOWN", "red")
-    html_segment(usegs, s, "UP", "green")
+    html_segment(csegs, s, "CORE", "red", True)
+    html_segment(dsegs, s, "DOWN", "blue")
+    html_segment(usegs, s, "UP", "green", True)
 
 
-def html_segment(segs, s, name, color):
+def html_segment(segs, s, name, color, rev=False):
     '''
     Formats a single segment to nested html
     '''
     segidx = 0
     for seg in segs:
-        p_segment(s, seg, segidx, name, color)
+        p_segment(s, seg, segidx, name, color, rev)
         segidx += 1
 
 
@@ -123,9 +122,10 @@ def get_json_segments(segs):
     for seg in segs:
         core = []
         for interface in seg.p.interfaces:
+            isd_ui, as_ui = parse_isdas(ISD_AS(interface.isdas))
             core.append({
-                "ISD": ISD_AS(interface.isdas)._isd,
-                "AS": ISD_AS(interface.isdas)._as,
+                "ISD": isd_ui,
+                "AS": as_ui,
                 "IFID": interface.ifID,
             })
         cores.append({
@@ -160,9 +160,10 @@ def get_json_paths(paths):
         logging.debug(path.__dict__)
         core = []
         for interface in path.p.path.interfaces:
+            isd_ui, as_ui = parse_isdas(ISD_AS(interface.isdas))
             core.append({
-                "ISD": ISD_AS(interface.isdas)._isd,
-                "AS": ISD_AS(interface.isdas)._as,
+                "ISD": isd_ui,
+                "AS": as_ui,
                 "IFID": interface.ifID,
             })
         cores.append({
@@ -554,15 +555,20 @@ def get_json_path_segs(paths, csegs, usegs, dsegs):
     '''
     data = []
     links = []
+    segs = len(csegs) + len(usegs) + len(dsegs)
+    if segs > 0:
+        nonseg_ltype = "PEER"
+    else:
+        nonseg_ltype = "CHILD"
     add_seg_links(csegs, data, links, "CORE")
     add_seg_links(usegs, data, links, "PARENT")
     add_seg_links(dsegs, data, links, "PARENT")
-    add_nonseg_links(paths, data, links, "PEER")
+    add_nonseg_links(paths, data, links, nonseg_ltype)
     logging.debug(data)
     return data
 
 
-def p_segment(s, seg, idx, name, color):
+def p_segment(s, seg, idx, name, color, rev):
     '''
     Add segment to html list
     '''
@@ -572,10 +578,14 @@ def p_segment(s, seg, idx, name, color):
     list_add(s, "Expiration: %s" % iso_timestamp(seg.p.expTime))
     list_add(s, "Hops: %i" % (len(seg.p.interfaces) / 2))
     # enumerate path interfaces
-    for interface in seg.p.interfaces:
+    if rev:
+        interfaces = reversed(seg.p.interfaces)
+    else:
+        interfaces = seg.p.interfaces
+    for interface in interfaces:
         isd_as = ISD_AS(interface.isdas)
         link = interface.ifID
-        list_add(s, "%s-%s (%s)" % (isd_as._isd, isd_as._as, link))
+        list_add(s, "%s (%s)" % (str(isd_as), link))
     indent_close(s)
 
 
@@ -711,9 +721,10 @@ def set_param(request, name, default):
 
 def launch_sciond(sock_file, addr, s_isd_as):
     # we need an asynchronous call, use Popen()
+    isd_file, as_file = parse_isdas(s_isd_as, file=True)
     cmd = 'cd %s && python/bin/sciond --api-addr /run/shm/sciond/sd%s.sock \
         sd%s gen/ISD%s/AS%s/endhost' % (
-        SCION_ROOT, s_isd_as, s_isd_as, s_isd_as._isd, s_isd_as._as)
+        SCION_ROOT, s_isd_as, s_isd_as, isd_file, as_file)
     if addr and addr != '':
         cmd = '%s --addr %s' % (cmd, addr)
     logging.info("Listening for sciond: %s" % cmd)
@@ -736,6 +747,24 @@ def findCerts(conf_dir, extension):
     return certs
 
 
+def parse_isdas(isd_as, file=False):
+    '''
+    Parses ISD_AS object for UI and file-friendly ISD-AS pairs.
+    :param isd_as: ISD_AS object.
+    '''
+    try:
+        isd = isd_as.isd_str()
+        if file:
+            as_ = isd_as.as_file_fmt()
+        else:
+            as_ = isd_as.as_str()
+    except (AttributeError) as err:
+        logging.warn(err)
+        isd = isd_as._isd
+        as_ = isd_as._as
+    return isd, as_
+
+
 def index(request):
     '''
     Main index handler for index.html for main visualization page.
@@ -754,6 +783,7 @@ def index(request):
         return fmt_err(request, p)
     s_isd_as = ISD_AS(p['src'])
     d_isd_as = ISD_AS(p['dst'])
+    p['src'], p['dst'] = str(s_isd_as), str(d_isd_as)  # reformat
     csegs = dsegs = usegs = []
     paths = ''
     logging.info("Requesting sciond data from %s to %s" % (s_isd_as, d_isd_as))
@@ -804,8 +834,9 @@ def index(request):
             p['json_crt'] = (
                 "Certificate information for sciond not yet implemented.")
         elif (p['data'] == 'file'):
+            isd_file, as_file = parse_isdas(s_isd_as, file=True)
             conf_dir = "%s/%s/ISD%s/AS%s/endhost" % (
-                SCION_ROOT, GEN_PATH, s_isd_as._isd, s_isd_as._as)
+                SCION_ROOT, GEN_PATH, isd_file, as_file)
             t = Topology.from_file(os.path.join(conf_dir, TOPO_FILE))
             topo = organize_topo(t)
             p['json_as_topo'] = json.dumps(get_json_as_topology(t, topo))
