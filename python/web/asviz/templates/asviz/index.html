@@ -23,6 +23,7 @@
 <!-- Stylesheets -->
 {% block css %}
 <link rel="stylesheet" href="{% static "css/bootstrap.min.css" %}"></link>
+<link rel="stylesheet" href="{% static "css/pretty-checkbox.min.css" %}"></link>
 <link rel="stylesheet" href="{% static "css/style.css" %}"></link>
 <link rel="stylesheet" href="{% static "css/topology.css" %}"></link>
 {% endblock css %}
@@ -123,6 +124,18 @@
           value="{{ mp }}" style="width: 45px;"> <input
           type="submit" value="Update Paths"
           onclick="$('#tab').val('tab-pathtopo');" />
+         <div id="div_as_names" class="pretty p-switch">
+          <input id="switch_as_names" type="checkbox" />
+          <div class="state">
+           <label>AS Names</label>
+          </div>
+         </div>
+         <div id="div_as_numbers" class="pretty p-switch">
+          <input id="switch_as_numbers" type="checkbox" />
+          <div class="state">
+           <label>AS Numbers</label>
+          </div>
+         </div>
         </div>
        </div>
        <div id="as-pathtopo"></div>
@@ -183,6 +196,16 @@
             activeTab = $(e.target).attr('id');
             $("#tab").val(activeTab);
             console.log('selected tab: ' + activeTab);
+        });
+
+        // path info label switches
+        $('#switch_as_names').prop("checked", false);
+        $('#switch_as_names').change(function() {
+            handleAsLabelSwitch();
+        });
+        $('#switch_as_numbers').prop("checked", false);
+        $('#switch_as_numbers').change(function() {
+            handleAsLabelSwitch();
         });
     });
 

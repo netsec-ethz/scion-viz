@@ -24,6 +24,7 @@ var graphPath;
 var colorPath;
 var colaPath;
 var svgPath;
+var iaLabels;
 
 var setup = {};
 var colors = {};
@@ -50,11 +51,10 @@ var p_r = 23; // path node radius
 var pt_w = 90; // text node rect width
 var pt_h = 35; // text node rect height
 var pt_r = 4; // text node rect corner radius
-var pl_w = 20; // path legend width
+var pl_w = 15; // path legend width
 var ph_h = 25; // path title header height
 var ph_m = 5; // path title header margin
 var ph_p = ph_h + ph_m; // path title header padding
-var short_as_len = 6; // number of AS characters to display
 var short_as_node = true; // true: circle, short AS; false: oval, long AS
 
 var pageBounds;
@@ -67,6 +67,8 @@ var secondMs = 1000;
 var minuteMs = secondMs * 60;
 var hourMs = minuteMs * 60;
 var yearMs = hourMs * 24;
+
+var urlIaLabels = 'https://raw.githubusercontent.com/netsec-ethz/scion-web/master/utility/graphviz/labels.json';
 
 /*
  * Post-rendering method to add labels to paths graph. The position of these
@@ -182,6 +184,7 @@ function drawTopology(div_id, original_json_data, segs, width, height) {
         return;
     }
 
+    console.log(JSON.stringify(original_json_data));
     graphPath = convertLinks2Graph(original_json_data);
 
     // first node in each up and down segment must be core
@@ -189,7 +192,6 @@ function drawTopology(div_id, original_json_data, segs, width, height) {
     updateGraphWithSegments(graphPath, segs.down_segments.if_lists, true);
 
     console.log(JSON.stringify(graphPath));
-
     colorPath = d3.scale.category20();
     p_link_dist = short_as_node ? p_link_dist : p_link_dist_long;
     colaPath = cola.d3adaptor().jaccardLinkLengths(p_link_dist)
@@ -223,13 +225,22 @@ function drawTopology(div_id, original_json_data, segs, width, height) {
     circlesg = svgPath.append("g");
 
     update();
-    drawLegend();
     topoColor({
         "source" : "none",
         "destination" : "none",
         "path1" : "red",
         "path2" : "green",
         "path3" : "blue"
+    });
+
+    // get labels if possible, then draw legend with or without labels
+    $.ajax({
+        url : urlIaLabels,
+        type : 'GET',
+        dataType : "json",
+        success : isLabelsSuccess,
+        error : isLabelsError,
+        timeout : 5000,
     });
 }
 
@@ -362,7 +373,7 @@ function update() {
                 return d.type + " label";
             }).text(function(d) {
         if (isNodeShortened(d)) {
-            return d.name.substring(d.name.length - short_as_len);
+            return shortenNode(d);
         } else {
             return d.name;
         }
@@ -372,15 +383,19 @@ function update() {
 
     // tooltip for long AS names
     node.on("mouseover", function(d) {
-        var g = d3.select(this);
-        var info = g.append('text').classed('info', true).attr('x',
-                -labelWidth(d.name) / 2).attr('y', -p_r - ph_m).style(
-                "font-size", "12px").text(function(d) {
-            return isNodeShortened(d) ? d.name : "";
-        });
+        var cbName = $('#switch_as_names').prop('checked');
+        var cbNumber = $('#switch_as_numbers').prop('checked');
+        if (!cbName && !cbNumber) {
+            var g = d3.select(this);
+            g.append('text').classed('tool', true)
+                    .attr("text-anchor", "middle").attr('y', -p_r - ph_m)
+                    .style("font-size", "12px").text(function(d) {
+                        return getNodeInfoText(d, true, true);
+                    });
+        }
     })
     node.on("mouseout", function() {
-        d3.select(this).select('text.info').remove();
+        d3.select(this).select('text.tool').remove();
     });
 
     node.exit().remove();
@@ -396,10 +411,57 @@ function update() {
 }
 
 /*
+ * Update static into labels based on checkboxes.
+ */
+function handleAsLabelSwitch() {
+    var cbName = $('#switch_as_names').prop('checked');
+    var cbNumber = $('#switch_as_numbers').prop('checked');
+    var g = d3.selectAll(".node");
+    g.select('text.info').remove(); // clean old labels first
+    g.append('text').classed('info', true).attr("text-anchor", "middle").attr(
+            'y', -p_r - ph_m).style("font-size", "12px").text(function(d) {
+        return getNodeInfoText(d, cbNumber, cbName);
+    });
+}
+
+/*
+ * Determine best info/tooltip display of text.
+ */
+function getNodeInfoText(d, useNumber, useName) {
+    var isAs = (d.type != "host" && d.type != "placeholder");
+    var asLabel = '';
+    if (useNumber) {
+        asLabel += isNodeShortened(d) ? d.name : '';
+    }
+    if (useName && iaLabels && iaLabels.AS && iaLabels.AS[d.name]) {
+        if (asLabel.length > 0) {
+            asLabel += ' ';
+        }
+        asLabel += iaLabels.AS[d.name];
+    }
+    return isAs ? asLabel : '';
+}
+
+/*
  * Determines if name of node has been shortened.
  */
 function isNodeShortened(d) {
-    return (short_as_node && d.name.length > short_as_len && d.type != "host");
+    var reISDAS = new RegExp(/^[0-9]+-[0-9a-f]+:[0-9a-f]+:[0-9a-f]+$/i);
+    return (short_as_node && reISDAS.test(d.name) && d.type != "host");
+}
+
+/*
+ * Shorten ISD-AS DD-HHHH:HHHH:HHHH to HHHH:HHHH.
+ */
+function shortenNode(d) {
+    var isdas = d.name.split('-');
+    if (isdas.length == 2) {
+        var as = isdas[1].split(':');
+        if (as.length == 3) {
+            return as[1] + ':' + as[2];
+        }
+    }
+    return d.name;
 }
 
 /*
@@ -491,17 +553,64 @@ function drawLegend() {
     var x_offset = (ph_m * 2) + pl_w;
     var y_offset = pl_w / 2;
     legend.append("text").attr("x", x_offset).attr("y", y_offset).attr("dy",
-            ".35em").style("text-anchor", "begin").text(function(d) {
-        if (shown.includes(d)) {
-            if (d % 2 === 0) {
-                return 'ISD-' + (d / 4 + 1) + ' core';
-            } else {
-                return 'ISD-' + (((d - 1) / 4) + 1);
-            }
-        } else {
-            return null;
+            ".35em").style("text-anchor", "begin").style("font-size", "12px")
+            .text(function(d) {
+                if (shown.includes(d)) {
+                    var core = '';
+                    var label = '';
+                    if (d % 2 === 0) {
+                        isd = d / 4 + 1;
+                        core = ' (core)';
+                    } else {
+                        isd = (d - 1) / 4 + 1;
+                    }
+                    if (iaLabels && iaLabels.ISD && iaLabels.ISD[String(isd)]) {
+                        label = ' ' + iaLabels.ISD[String(isd)];
+                    }
+                    return 'ISD-' + isd + label + core;
+                } else {
+                    return null;
+                }
+            });
+}
+
+/*
+ * If labels are found, translate to new AS numbering if needed.
+ */
+function isLabelsSuccess(data, textStatus, jqXHR) {
+    console.log(JSON.stringify(data));
+    iaLabels = data; // global availablity
+    prepareInfoCheckBoxes();
+}
+
+/*
+ * Label not found, log and continue.
+ */
+function isLabelsError(jqXHR, textStatus, errorThrown) {
+    console.error("labels download error:", errorThrown);
+    prepareInfoCheckBoxes();
+}
+
+/*
+ * Final preparation, to hide/show info checkboxes and draw legend.
+ */
+function prepareInfoCheckBoxes() {
+    // allow AS names labels option based on availablity of labels
+    var showNames = iaLabels && iaLabels.ISD;
+    $('#div_as_names').css("display", showNames ? "inline-block" : "none");
+
+    // allow AS numbers labels option based on length of numbers
+    var showNums = false;
+    for (var i = 0; i < graphPath.nodes.length; i++) {
+        if (isNodeShortened(graphPath.nodes[i])) {
+            showNums = true;
+            break;
         }
-    });
+    }
+    $('#div_as_numbers').css("display", showNums ? "inline-block" : "none");
+
+    // update legend with labels
+    drawLegend();
 }
 
 /*

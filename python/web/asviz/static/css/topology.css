@@ -58,7 +58,7 @@
  cursor: move;
 }
 
-.label {
+.host.label {
  text-transform: capitalize;
 }
 
