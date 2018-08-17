@@ -19,6 +19,7 @@ import re
 import subprocess
 import time
 from datetime import datetime
+import pathlib
 from django.shortcuts import render
 
 import lib.app.sciond as lib_sciond
@@ -726,7 +727,7 @@ def launch_sciond(sock_file, conf_dir, addr, s_isd_as):
     localhost.
     '''
     cmd = 'cd %s && python/bin/sciond --api-addr %s sd%s %s' % (
-        SCION_ROOT, sock_file, s_isd_as, conf_dir)
+        SCION_ROOT, sock_file, s_isd_as.file_fmt(), conf_dir)
     if addr and addr != '':
         cmd = '%s --addr %s' % (cmd, addr)
     logging.info("Listening for sciond: %s" % cmd)
@@ -774,11 +775,12 @@ def index(request):
     conf_dir = "%s/%s/ISD%s/AS%s/endhost" % (
         SCION_ROOT, GEN_PATH, s_isd_as.isd_str(), s_isd_as.as_file_fmt())
     sock_file = get_default_sciond_path(s_isd_as)
+    if not pathlib.Path(sock_file).exists():
+        sock_file = get_default_sciond_path(None)
     try:
         if (p['data'] == 'sdapi'):
             connector[s_isd_as] = lib_sciond.init(sock_file)
             logging.info(connector[s_isd_as]._api_addr)
-
             try:  # test if sciond is already running for this AS
                 logging.info("Testing sciond at %s" % sock_file)
                 lib_sciond.get_as_info(connector=connector[s_isd_as])
