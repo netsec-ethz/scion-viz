@@ -23,17 +23,21 @@ import logging
 import os
 import subprocess
 import time
+import pathlib
 from datetime import timedelta
 from os.path import dirname as dir
 
 import lib.app.sciond as lib_sciond
-from lib.app.sciond import SCIONDConnectionError, SCIONDResponseError
+from lib.app.sciond import (
+    get_default_sciond_path,
+    SCIONDConnectionError,
+    SCIONDResponseError,
+)
 from lib.crypto.util import CERT_DIR
 from lib.defines import (
     AS_CONF_FILE,
     GEN_PATH,
     PATH_POLICY_FILE,
-    SCIOND_API_SOCKDIR,
 )
 from lib.errors import SCIONBaseError
 from lib.packet.host_addr import HostAddrIPv4
@@ -105,11 +109,11 @@ def print_as_viewer_info(addr):
     '''
     try:
         # init connection to sciond
-        isd_file, as_file = parse_isdas(s_isd_as, file=True)
         conf_dir = "%s/%s/ISD%s/AS%s/endhost" % (
-            SCION_ROOT, GEN_PATH, isd_file, as_file)
-        sock_file = os.path.join(
-            SCIOND_API_SOCKDIR, "sd%s-%s.sock" % (isd_file, as_file))
+            SCION_ROOT, GEN_PATH, s_isd_as.isd_str(), s_isd_as.as_file_fmt())
+        sock_file = get_default_sciond_path(s_isd_as)
+        if not pathlib.Path(sock_file).exists():
+            sock_file = get_default_sciond_path(None)
         connector[s_isd_as] = lib_sciond.init(sock_file)
         logging.info(connector[s_isd_as]._api_addr)
         try:  # test if sciond is already running for this AS
@@ -121,7 +125,7 @@ def print_as_viewer_info(addr):
         except (SCIONDConnectionError, FileNotFoundError) as err:
             logging.warning("%s: %s" % (err.__class__.__name__, err))
             # need to launch sciond, wait for uptime
-            launch_sciond(sock_file, addr)
+            launch_sciond(sock_file, conf_dir, addr, s_isd_as)
         if args.t:  # as topology
             print_as_topology(s_isd_as, connector)
         if args.p:  # announced paths
@@ -140,16 +144,13 @@ def print_as_viewer_info(addr):
         logging.error("%s: %s" % (err.__class__.__name__, err))
 
 
-def launch_sciond(sock_file, addr):
+def launch_sciond(sock_file, conf_dir, addr, s_isd_as):
     '''
     Launch sciond process with or without optional IP address when not using
     localhost.
     '''
-    isd_file, as_file = parse_isdas(s_isd_as, file=True)
-    # we need an asynchronous call, use Popen()
-    cmd = 'cd %s && python/bin/sciond --api-addr /run/shm/sciond/sd%s-%s.sock sd%s-%s \
-        gen/ISD%s/AS%s/endhost' % (
-        SCION_ROOT, isd_file, as_file, isd_file, as_file, isd_file, as_file)
+    cmd = 'cd %s && python/bin/sciond --api-addr %s sd%s %s' % (
+        SCION_ROOT, sock_file, s_isd_as.file_fmt(), conf_dir)
     if addr and addr != '':
         cmd = '%s --addr %s' % (cmd, addr)
     logging.info("Listening for sciond: %s" % cmd)
@@ -372,24 +373,6 @@ def organize_topo(t):
         'PEER_IF': t.peer_interfaces,
         'ZOOKEEPER': t.zookeepers,
     }
-
-
-def parse_isdas(isd_as, file=False):
-    '''
-    Parses ISD_AS object for UI and file-friendly ISD-AS pairs.
-    :param isd_as: ISD_AS object.
-    '''
-    try:
-        isd = isd_as.isd_str()
-        if file:
-            as_ = isd_as.as_file_fmt()
-        else:
-            as_ = isd_as.as_str()
-    except (AttributeError) as err:
-        logging.warn(err)
-        isd = isd_as._isd
-        as_ = isd_as._as
-    return isd, as_
 
 
 # parse commands, query sciond, display results
