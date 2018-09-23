@@ -24,7 +24,6 @@ var graphPath;
 var colorPath;
 var colaPath;
 var svgPath;
-var iaLabels;
 
 var setup = {};
 var colors = {};
@@ -67,8 +66,6 @@ var secondMs = 1000;
 var minuteMs = secondMs * 60;
 var hourMs = minuteMs * 60;
 var yearMs = hourMs * 24;
-
-var urlIaLabels = 'https://raw.githubusercontent.com/netsec-ethz/scion-web/master/utility/graphviz/labels.json';
 
 /*
  * Post-rendering method to add labels to paths graph. The position of these
@@ -232,16 +229,7 @@ function drawTopology(div_id, original_json_data, segs, width, height) {
         "path2" : "green",
         "path3" : "blue"
     });
-
-    // get labels if possible, then draw legend with or without labels
-    $.ajax({
-        url : urlIaLabels,
-        type : 'GET',
-        dataType : "json",
-        success : isLabelsSuccess,
-        error : isLabelsError,
-        timeout : 5000,
-    });
+    drawLegend();
 }
 
 /*
@@ -411,21 +399,8 @@ function update() {
 }
 
 /*
- * Update static into labels based on checkboxes.
- */
-function handleAsLabelSwitch() {
-    var cbName = $('#switch_as_names').prop('checked');
-    var cbNumber = $('#switch_as_numbers').prop('checked');
-    var g = d3.selectAll(".node");
-    g.select('text.info').remove(); // clean old labels first
-    g.append('text').classed('info', true).attr("text-anchor", "middle").attr(
-            'y', -p_r - ph_m).style("font-size", "12px").text(function(d) {
-        return getNodeInfoText(d, cbNumber, cbName);
-    });
-}
-
-/*
  * Determine best info/tooltip display of text.
+ *
  */
 function getNodeInfoText(d, useNumber, useName) {
     var isAs = (d.type != "host" && d.type != "placeholder");
@@ -572,45 +547,6 @@ function drawLegend() {
                     return null;
                 }
             });
-}
-
-/*
- * If labels are found, translate to new AS numbering if needed.
- */
-function isLabelsSuccess(data, textStatus, jqXHR) {
-    console.log(JSON.stringify(data));
-    iaLabels = data; // global availablity
-    prepareInfoCheckBoxes();
-}
-
-/*
- * Label not found, log and continue.
- */
-function isLabelsError(jqXHR, textStatus, errorThrown) {
-    console.error("labels download error:", errorThrown);
-    prepareInfoCheckBoxes();
-}
-
-/*
- * Final preparation, to hide/show info checkboxes and draw legend.
- */
-function prepareInfoCheckBoxes() {
-    // allow AS names labels option based on availablity of labels
-    var showNames = iaLabels && iaLabels.ISD;
-    $('#div_as_names').css("display", showNames ? "inline-block" : "none");
-
-    // allow AS numbers labels option based on length of numbers
-    var showNums = false;
-    for (var i = 0; i < graphPath.nodes.length; i++) {
-        if (isNodeShortened(graphPath.nodes[i])) {
-            showNums = true;
-            break;
-        }
-    }
-    $('#div_as_numbers').css("display", showNums ? "inline-block" : "none");
-
-    // update legend with labels
-    drawLegend();
 }
 
 /*

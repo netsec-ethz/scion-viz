@@ -74,7 +74,7 @@ a:hover {
 }
 
 #as-pathtopo {
- width: 600px;
+ width: 700px;
  height: 400px;
  top: 90px;
  border: 1px solid #ccc;
@@ -87,10 +87,10 @@ a:hover {
 }
 
 #as-iflist {
- width: 300px;
+ width: 200px;
  height: 400px;
  top: 90px;
- left: 600px;
+ left: 700px;
  padding-left: 10px;
  border: 1px solid #ccc;
 }
@@ -180,6 +180,8 @@ a:hover {
  text-align: center
 }
 
+/* OPEN/CLOSE LISTS */
+
 li.seg-type {
  font-weight: bold;
 }
@@ -250,6 +252,13 @@ ul.tree li.open > a:not(:last-child):before {
 .link.as-in {
  /* invisible internal AS links */
 
+}
+
+/* G-MAP LOCATIONS */
+#g-map {
+ position: absolute;
+ width: 100%;
+ height: 100%;
 }
 
 /**

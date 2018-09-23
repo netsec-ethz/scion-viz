@@ -18,12 +18,15 @@ import os
 import re
 import subprocess
 import time
+import urllib.request
+import requests
 from datetime import datetime
 import pathlib
+from django.http import HttpResponse
 from django.shortcuts import render
 
 import lib.app.sciond as lib_sciond
-from as_viewer.settings import SCION_ROOT
+from as_viewer.settings import SCION_ROOT, BASE_DIR
 from lib.app.sciond import (
     get_default_sciond_path,
     SCIONDConnectionError,
@@ -765,6 +768,15 @@ def index(request):
     p['mp'] = set_param(request, 'mp', '5')
     p['err'] = ''
     if (p['src'] == '' and p['dst'] == ''):
+        # use endhost gen/ia if no host specified
+        if (p['src'] == ''):
+            ia_file = "%s/%s/ia" % (SCION_ROOT, GEN_PATH)
+            try:
+                with open(ia_file, 'r') as fin:
+                    # load and reformat
+                    p['src'] = str(ISD_AS(fin.read().strip()))
+            except (FileNotFoundError) as err:
+                logging.warning("%s: %s" % (err.__class__.__name__, err))
         return fmt_err(request, p)
     s_isd_as = ISD_AS(p['src'])
     d_isd_as = ISD_AS(p['dst'])
@@ -851,3 +863,48 @@ def fmt_err(request, params):
     params['json_as_topo'] = '{"links": [], "nodes": []}'
     params['path_info'] = ''
     return render(request, 'asviz/index.html', params)
+
+
+def labels(request):
+    debug = request.GET.get('debug')
+    labelsTest = BASE_DIR + '/../../test/asviz/labels-d.json'
+    labelsUrl = 'https://raw.githubusercontent.com/netsec-ethz/scion-web/master/utility/graphviz/labels.json'
+    if debug:
+        with open(labelsTest, 'r') as fin:
+            logging.info(fin)
+            return HttpResponse(fin, content_type="text/json; charset=utf-8")
+    else:
+        with urllib.request.urlopen(labelsUrl) as response:
+            json = response.read()
+            logging.info(json)
+            return HttpResponse(json, content_type="text/json; charset=utf-8")
+
+
+def locations(request):
+    debug = request.GET.get('debug')
+    locationsTest = BASE_DIR + '/../../test/asviz/nodes-d.xml'
+    locationsUrl = 'https://www.scion-architecture.net/pages/map/nodes.xml'
+    if debug:
+        with open(locationsTest, 'r') as fin:
+            logging.info(fin)
+            return HttpResponse(fin, content_type="text/json; charset=utf-8")
+    else:
+        with urllib.request.urlopen(locationsUrl) as response:
+            xml = response.read()
+            logging.info(xml)
+            return HttpResponse(xml, content_type="text/xml; charset=utf-8")
+
+
+def geolocate(request):
+    debug = request.GET.get('debug')
+    default_loc = '{"location": {"lat": 0, "lng": 0}}'
+    GEO_API_KEY = 'AIzaSyC3nAm2h9Pl6aKtiIk5uTb2sUusAX4SOoY'
+    geoLocateUrl = 'https://www.googleapis.com/geolocation/v1/geolocate?key=%s' % GEO_API_KEY
+    if debug:
+        logging.info(default_loc)
+        return HttpResponse(default_loc, content_type="text/json; charset=utf-8")
+    else:
+        response = requests.post(geoLocateUrl)
+        json = response.text
+        logging.info(json)
+        return HttpResponse(json, content_type="text/json; charset=utf-8")

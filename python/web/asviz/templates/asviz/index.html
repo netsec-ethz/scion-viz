@@ -36,6 +36,8 @@
 <script src="{% static "js/topojson.min.js" %}"></script>
 <script src="{% static "js/topology.js" %}" ></script>
 <script src="{% static "js/tab-topocola.js" %}" ></script>
+<script src="{% static "js/location.js" %}" ></script>
+<script src="{% static "js/tab-g-maps.js" %}" ></script>
 <script src="{% static "js/asviz.js" %}" ></script>
 {% endblock %}
 </head>
@@ -62,7 +64,7 @@
     <div id="as-menu">
      <div id='as-select'>
       Source AS: <input type="text" name="src" required
-       placeholder="1-1" pattern="^[0-9]+-[0-9a-fA-F_:\/]+$"
+       placeholder="1-ff00:0:131" pattern="^[0-9]+-[0-9a-fA-F_:\/]+$"
        value="{{ src }}" style="width: 120px;"> Data: <select
        id="data" name="data"
        onchange="$('#tab').val(activeTab); this.form.submit();">
@@ -96,28 +98,11 @@
      </ul>
 
      <div class="tab-content">
-      <div id="as-tab-astopo" class="tab-pane fade in">
-       <div id="as-astopo"></div>
-       <div id="as-svrlist">
-        <h2>AS {{ src }} Topology Servers</h2>
-        <p id="as-selection"></p>
-        <table id='server_table'>
-         <thead>
-          <tr>
-           <th id='key'></th>
-           <th id='value'></th>
-          </tr>
-         </thead>
-         <tbody>
-         </tbody>
-        </table>
-       </div>
-      </div>
-      <div id="as-tab-pathtopo" class="tab-pane fade in">
+      <div id="as-tab-pathtopo" class="tab-pane fade in active">
        <div id="as-pathopt">
         <div>
          <label for="dst">Destination AS:</label> <input type="text"
-          id="dst" name="dst" placeholder="2-21"
+          id="dst" name="dst" placeholder="2-ff00:0:222"
           pattern="^[0-9]+-[0-9a-fA-F_:\/]+$" value="{{ dst }}"
           style="width: 120px;"> <label for="mp">Max
           Paths:</label> <input id="mp" name="mp" type="number" min="1"
@@ -136,6 +121,19 @@
            <label>AS Numbers</label>
           </div>
          </div>
+         <div class="pretty p-switch">
+          <input id="radio_pathTopo" type="radio" name="radioPaths"
+           checked="checked">
+          <div class="state">
+           <label>Topology</label>
+          </div>
+         </div>
+         <div class="pretty p-switch">
+          <input id="radio_pathMap" type="radio" name="radioPaths">
+          <div class="state">
+           <label>Map</label>
+          </div>
+         </div>
         </div>
        </div>
        <div id="as-pathtopo"></div>
@@ -144,6 +142,23 @@
         {% if path_info %}
         <p>{{ path_info | safe }}</p>
         {% endif %}
+       </div>
+      </div>
+      <div id="as-tab-astopo" class="tab-pane fade in">
+       <div id="as-astopo"></div>
+       <div id="as-svrlist">
+        <h2>AS {{ src }} Topology Servers</h2>
+        <p id="as-selection"></p>
+        <table id='server_table'>
+         <thead>
+          <tr>
+           <th id='key'></th>
+           <th id='value'></th>
+          </tr>
+         </thead>
+         <tbody>
+         </tbody>
+        </table>
        </div>
       </div>
       <div id="as-tab-trc" class="tab-pane fade in">
@@ -175,14 +190,25 @@
  </div>
 </body>
 
-
 <script type="text/javascript">
     var resSegs, resCore, resUp, resDown, resPath, jTopo, json_as_topo;
-    loadData('{{ err }}');
-
+    var iaLabels;
+    var iaLocations = [];
     var activeTab = null;
+    var d = {};
 
     $(document).ready(function() {
+        var paths = JSON.parse('{{ json_paths | safe }}');
+        for (var p = 0; p < paths.if_lists.length; p++) {
+            for (var i = 0; i < paths.if_lists[p].interfaces.length; i++) {
+                var isd = parseInt(paths.if_lists[p].interfaces[i].ISD);
+                if (isd <= 15) {
+                    d['debug'] = true; // test ISD found, set debug
+                    break;
+                }
+            }
+        }
+
         // set data selection
         $("#data").val('{{ data }}');
 
@@ -199,20 +225,234 @@
         });
 
         // path info label switches
-        $('#switch_as_names').prop("checked", false);
         $('#switch_as_names').change(function() {
             handleAsLabelSwitch();
         });
-        $('#switch_as_numbers').prop("checked", false);
         $('#switch_as_numbers').change(function() {
             handleAsLabelSwitch();
         });
+        // map/topology switch
+        $('input[type=radio][name=radioPaths]').change(function() {
+            handleMapTopologySwitch();
+        });
+        // request labels/locations and wait to call view until done
+        $.when(ajaxLabels(d), ajaxLocations(d)).done(function(aLbls, aLocs) {
+            isLabelsComplete(aLbls[0], aLbls[1], aLbls[2]);
+            isLocationsComplete(aLocs[0], aLocs[1], aLocs[2]);
+            loadPathData('{{ err }}');
+        });
     });
 
-    function loadData(err) {
+    /*
+     * If labels are found, translate to new AS numbering if needed.
+     */
+    function isLabelsComplete(data, textStatus, jqXHR) {
+        console.log(JSON.stringify(data));
+        iaLabels = data; // global availablity
+        // allow AS names labels option based on availablity of labels
+        var showNames = iaLabels && iaLabels.ISD;
+        $('#div_as_names').css("display", showNames ? "inline-block" : "none");
+        $('#div_as_numbers').css("display", true ? "inline-block" : "none");
+    }
+
+    function ajaxLabels(data) {
+        return $.ajax({
+            url : 'labels',
+            type : 'get',
+            dataType : "json",
+            timeout : 5000,
+            data : data,
+        });
+    }
+
+    function ajaxLocations(data) {
+        return $.ajax({
+            url : 'locations',
+            type : 'get',
+            dataType : "xml",
+            timeout : 5000,
+            data : data,
+        });
+    }
+
+    function ajaxGeoLocate(data) {
+        return $.ajax({
+            url : 'geolocate',
+            type : 'get',
+            dataType : "json",
+            success : isGeolocateComplete,
+            error : function(jqXHR, textStatus, errorThrown) {
+                console.log(textStatus, errorThrown)
+            },
+            timeout : 5000,
+            data : data,
+        });
+    }
+
+    function isGeolocateComplete(data, textStatus, jqXHR) {
+        console.log(JSON.stringify(data));
+        var local = data.location;
+        // get potential locations
+        drawMap('{{ src }}', '{{ dst }}', local);
+        handleAsLabelSwitch();
+        var open = typeof self.segType !== 'undefined';
+        setPaths(self.segType, self.segNum, open);
+    }
+
+    function drawMap(src, dst, local) {
+        // generate list of ia markers from returned paths
+        self.jLoc = [];// global availablity
+        var ourIAs = [];
+        for (var p = 0; p < resPath.if_lists.length; p++) {
+            for (var i = 0; i < resPath.if_lists[p].interfaces.length; i++) {
+                var ia = resPath.if_lists[p].interfaces[i];
+                if (ISD.test(ia.ISD) && AS.test(ia.AS)) {
+                    var isdas = ia.ISD + '-' + ia.AS;
+                    if (!ourIAs.includes(isdas)) {
+                        ourIAs.push(isdas);
+                        iaLocs = $.grep(iaLocations, function(e, i) {
+                            return e.ia === isdas;
+                        });
+                        if (iaLocs.length > 0) {
+                            // each ia found, use location
+                            for (var l = 0; l < iaLocs.length; l++) {
+                                self.jLoc.push({
+                                    ia : isdas,
+                                    lat : iaLocs[l].lat,
+                                    lng : iaLocs[l].lng,
+                                    host : iaLocs[l].host,
+                                });
+                            }
+                        } else if (src == isdas) {
+                            // we can only expect src to geolocate
+                            self.jLoc.push({
+                                ia : isdas,
+                                lat : local.lat,
+                                lng : local.lng,
+                                host : "Origin IP Address",
+                            });
+                        }
+                        // remaining "unknown" locations, do not render
+                    }
+                }
+            }
+        }
+        // setup map with path ISDs
+        var isds = [];
+        for (key in self.jLoc) {
+            var isdAs = self.jLoc[key];
+            var iface = isdAs.ia.split("-");
+            var isd = parseInt(iface[0]);
+            if (isds.map(function(e) {
+                return e.ia;
+            }).indexOf(isd) === -1) {
+                isds.push({
+                    ia : isd,
+                    label : iaLabels ? iaLabels.ISD[iface[0]] : '',
+                });
+            }
+        }
+
+        initGMap(isds);
+
+        // setup map with known markers and links
+        updateGMapAsMarkers(src, dst);
+        updateGMapAsLinksAll();
+
+        var cbName = $('#switch_as_names').prop('checked');
+        var cbNumber = $('#switch_as_numbers').prop('checked');
+        updateGMapAsLabels(cbName, cbNumber);
+    }
+
+    /*
+     * Update static into labels based on checkboxes. Update paths based on
+     * selected path state.
+     */
+    function handleAsLabelSwitch() {
+        var cbName = $('#switch_as_names').prop('checked');
+        var cbNumber = $('#switch_as_numbers').prop('checked');
+        var topoMap = $('#radio_pathMap').prop('checked');
+        if (topoMap) {
+            updateGMapAsLabels(cbName, cbNumber);
+        } else {
+            var g = d3.selectAll(".node");
+            g.select('text.info').remove(); // clean old labels first
+            text = g.append('text').classed('info', true)
+            text.attr("text-anchor", "middle").attr('y', -p_r - ph_m).style(
+                    "font-size", "12px").text(function(d) {
+                return getNodeInfoText(d, cbNumber, cbName);
+            });
+        }
+    }
+
+    /*
+     * If locations are found, translate to new AS numbering if needed.
+     */
+    function isLocationsComplete(data, textStatus, jqXHR) {
+        // recieve list of known IA locations
+        var xml_node = $('nodes', data);
+        $.each(xml_node.find('node'), function() {
+            iaLocations.push({
+                ia : $(this).attr('ia'),
+                lat : $(this).attr('lat'),
+                lng : $(this).attr('long'),
+                host : $(this).attr('host'),
+            });
+        });
+        console.log(JSON.stringify(iaLocations));
+    }
+
+    /*
+     * Final preparation, to hide/show info checkboxes and draw legend.
+     */
+    function prepareInfoCheckBoxes() {
+        // allow AS names labels option based on availablity of labels
+        var showNames = iaLabels && iaLabels.ISD;
+        $('#div_as_names').css("display", showNames ? "inline-block" : "none");
+        $('#div_as_numbers').css("display", true ? "inline-block" : "none");
+    }
+
+    function handleMapTopologySwitch() {
+        var htmlGMap = "<iframe id='g-map' src='./static/html/map.html' frameborder='0'></iframe>";
+        var topoMap = $('#radio_pathMap').prop('checked');
+        console.log("map checked", topoMap);
+        if (topoMap) {
+            $("#as-pathtopo").children("svg").hide();
+            // only load map/geolocate once, to prevent exessive quota loads
+            if ($("#as-pathtopo").children("iframe").length == 0) {
+                $("#as-pathtopo").append(htmlGMap);
+                // geolocate current position
+                ajaxGeoLocate(d);
+            } else {
+                $("#as-pathtopo").children("iframe").show();
+                handleAsLabelSwitch();
+            }
+        } else {
+            $("#as-pathtopo").children("iframe").hide();
+            // only load svg once
+            if ($("#as-pathtopo").children("svg").length == 0) {
+                // load path topology
+                var width = $("#as-pathtopo").width();
+                var height = $("#as-pathtopo").height();
+                drawTopology("as-pathtopo", jTopo, resSegs, width, height);
+                // add endpoint labels
+                var open = typeof self.segType !== 'undefined';
+                setPaths(self.segType, self.segNum, open);
+                topoSetup({
+                    "source" : '{{ src }}',
+                    "destination" : '{{ dst }}',
+                }, width, height);
+            } else {
+                $("#as-pathtopo").children("svg").show();
+            }
+            handleAsLabelSwitch();
+        }
+    }
+
+    function loadPathData(err) {
         if (err && err != '') {
-            document.getElementById("as-error").innerHTML = err;
-            document.getElementById("as-error").style.color = 'red';
+            $("#as-error").html(err);
+            $("#as-error").css('color', 'red');
         }
         resSegs = JSON.parse('{{ json_seg_topo | safe }}');
         resCore = resSegs.core_segments;
@@ -225,24 +465,18 @@
         // ensure local hops data flows deterministically
         orderPaths('{{ src }}', '{{ dst }}');
 
-        // load path topology
-        var width = $("#as-pathtopo").width();
-        var height = $("#as-pathtopo").height();
-        drawTopology("as-pathtopo", jTopo, resSegs, width, height);
-        // add endpoint labels
-        topoSetup({
-            "source" : '{{ src }}',
-            "destination" : '{{ dst }}',
-        }, width, height);
         setupPathSelection();
         setupListTree();
+
+        // load path topology
+        handleMapTopologySwitch();
 
         // add AS topology layout
         var width = $("#as-astopo").width();
         var height = $("#as-astopo").height();
         drawAsTopo("as-astopo", json_as_topo, width, height);
-        document.getElementById("as-selection").innerHTML = "Click on a server";
+        $("#as-selection").html("Click on a server");
     }
 </script>
-<noscript>This form requires that you have javascript enabled
- to work properly please enable javascript in your browser.</noscript>
+<noscript>This form requires that you have javascript
+ enabled to work properly please enable javascript in your browser.</noscript>
