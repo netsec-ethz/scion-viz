@@ -20,4 +20,5 @@ urlpatterns = [
     url(r'^admin/', include(admin.site.urls)),
     url(r'^asviz/', include('asviz.urls', namespace="asviz")),
     url(r'^$', include('asviz.urls', namespace="asviz")),
+    url(r'^hosttime/', 'asviz.views.hosttime'),
 ]
