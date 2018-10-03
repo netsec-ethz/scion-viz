@@ -224,8 +224,8 @@ function setupListTree() {
             var parent = e.target.parentElement;
             var classList = parent.classList;
             var closeAllOpenSiblings = function() {
-                var opensubs = parent.parentElement
-                        .querySelectorAll(':scope .open');
+                // MWF: ':scope .open' fails in MS IE/Edge, removed ':scope'
+                var opensubs = parent.parentElement.querySelectorAll('.open');
                 for (var i = 0; i < opensubs.length; i++) {
                     opensubs[i].classList.remove('open');
                 }
