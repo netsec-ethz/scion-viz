@@ -143,22 +143,38 @@ function getPathSelectedLinks(res, path, color) {
     }
     for (var p = 0; p < routes.length; p++) {
         var pNum = parseInt(routes[p]);
+        var geol = [];
         for (var ifNum = 0; ifNum < (res.if_lists[pNum].interfaces.length - 1); ifNum++) {
-            // we want all ISD-ASes from each interface path traversed
+            // determine which endpoints have geolocation
             var iface = res.if_lists[pNum].interfaces[ifNum];
             var ifaceNext = res.if_lists[pNum].interfaces[ifNum + 1];
+            aIf = (iface.ISD + '-' + iface.AS);
+            bIf = (ifaceNext.ISD + '-' + ifaceNext.AS);
             aLocs = $.grep(self.jLoc, function(e, i) {
-                return e.ia === (iface.ISD + '-' + iface.AS);
+                return e.ia === aIf;
             });
             bLocs = $.grep(self.jLoc, function(e, i) {
-                return e.ia === (ifaceNext.ISD + '-' + ifaceNext.AS);
+                return e.ia === bIf;
             });
-            var isdAsA = [ aLocs[0].lat, aLocs[0].lng ];
-            var isdAsB = [ bLocs[0].lat, bLocs[0].lng ];
-            if (JSON.stringify(isdAsA) == JSON.stringify(isdAsB)) {
-                // skip internal routing when making arcs
-                continue;
+            if (aLocs.length > 0) {
+                if (JSON.stringify(geol[geol.length - 1]) != JSON
+                        .stringify(aLocs[0])) {
+                    geol.push(aLocs[0]);
+                }
             }
+            if (bLocs.length > 0) {
+                if (JSON.stringify(geol[geol.length - 1]) != JSON
+                        .stringify(bLocs[0])) {
+                    geol.push(bLocs[0]);
+                }
+            }
+        }
+        for (var x = 0; x < (geol.length - 1); x++) {
+            // only link endpoints that have geolocation
+            var loc = geol[x];
+            var locNext = geol[x + 1];
+            var isdAsA = [ loc.lat, loc.lng ];
+            var isdAsB = [ locNext.lat, locNext.lng ];
             arcs.push(createLink(isdAsA, isdAsB, color));
         }
     }

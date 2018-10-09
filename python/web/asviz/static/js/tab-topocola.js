@@ -400,7 +400,6 @@ function update() {
 
 /*
  * Determine best info/tooltip display of text.
- *
  */
 function getNodeInfoText(d, useNumber, useName) {
     var isAs = (d.type != "host" && d.type != "placeholder");

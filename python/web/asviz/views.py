@@ -55,10 +55,6 @@ topo_zk = ['ZOOKEEPER']
 
 logging = logging.getLogger("asviz")
 
-as_topo_path = ''
-sock_file = ''
-trc_path = ''
-crt_path = ''
 connector = {}
 
 
@@ -865,14 +861,24 @@ def fmt_err(request, params):
     return render(request, 'asviz/index.html', params)
 
 
+def config(request):
+    projectId = 'my-project-1470640410708'
+    configUrl = 'https://%s.appspot.com/getconfig' % projectId
+    response = requests.post(configUrl)
+    json = response.text
+    logging.info(json)
+    return HttpResponse(json, content_type="text/json; charset=utf-8")
+
+
 def labels(request):
     debug = request.GET.get('debug')
     labelsTest = BASE_DIR + '/../../test/asviz/labels-d.json'
-    labelsUrl = 'https://raw.githubusercontent.com/netsec-ethz/scion-web/master/utility/graphviz/labels.json'
+    labelsUrl = request.GET.get('labels_json_url')
     if debug:
         with open(labelsTest, 'r') as fin:
-            logging.info(fin)
-            return HttpResponse(fin, content_type="text/json; charset=utf-8")
+            json = fin.read()
+            logging.info(json)
+            return HttpResponse(json, content_type="text/json; charset=utf-8")
     else:
         with urllib.request.urlopen(labelsUrl) as response:
             json = response.read()
@@ -883,11 +889,12 @@ def labels(request):
 def locations(request):
     debug = request.GET.get('debug')
     locationsTest = BASE_DIR + '/../../test/asviz/nodes-d.xml'
-    locationsUrl = 'https://www.scion-architecture.net/pages/map/nodes.xml'
+    locationsUrl = request.GET.get('nodes_xml_url')
     if debug:
         with open(locationsTest, 'r') as fin:
-            logging.info(fin)
-            return HttpResponse(fin, content_type="text/json; charset=utf-8")
+            xml = fin.read()
+            logging.info(xml)
+            return HttpResponse(xml, content_type="text/json; charset=utf-8")
     else:
         with urllib.request.urlopen(locationsUrl) as response:
             xml = response.read()
@@ -898,11 +905,13 @@ def locations(request):
 def geolocate(request):
     debug = request.GET.get('debug')
     default_loc = '{"location": {"lat": 0, "lng": 0}}'
-    GEO_API_KEY = 'AIzaSyC3nAm2h9Pl6aKtiIk5uTb2sUusAX4SOoY'
-    geoLocateUrl = 'https://www.googleapis.com/geolocation/v1/geolocate?key=%s' % GEO_API_KEY
+    geoApiKey = request.GET.get('google_geolocation_apikey')
+    geoLocateUrl = ("https://www.googleapis.com/geolocation/v1/geolocate" +
+                    "?key=%s" % geoApiKey)
     if debug:
         logging.info(default_loc)
-        return HttpResponse(default_loc, content_type="text/json; charset=utf-8")
+        return HttpResponse(default_loc,
+                            content_type="text/json; charset=utf-8")
     else:
         response = requests.post(geoLocateUrl)
         json = response.text

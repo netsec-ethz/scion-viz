@@ -62,20 +62,29 @@ html, body {
     var appWindow = null;
     var appOrigin = null;
     var markers = [];
-    var msgCacheIntervalMs = 1000;
+    var msgQueue = [];
 
     var isd10Colors = [ 'blue', 'orange', 'green', 'red', 'purple', 'brown',
             'pink', 'gray', 'yellow', 'teal', ];
 
+    window.onload = function() {
+        console.info("maps.html loaded");
+        if (window.addEventListener) {
+            window.addEventListener("message", receiveMessage);
+        } else {
+            window.attachEvent("onmessage", receiveMessage);
+        }
+        console.info("receiveMessage listening for messages...");
+    };
+
     /**
      * Load the Google Maps API using our Google Cloud Storage developer key.
      **/
-    function loadScript() {
+    function loadScript(mapsjs_apikey) {
         var script = document.createElement('script');
-        MAPS_API_KEY = 'AIzaSyC1amANd6P0ptnLs9I0WRTY5NPR3KrL0ao';
         script.type = 'text/javascript';
         script.src = "https://maps.googleapis.com/maps/api/js?key="
-                + MAPS_API_KEY + "&libraries=geometry&callback=initMap";
+                + mapsjs_apikey + "&libraries=geometry&callback=initMap";
         script.setAttribute("defer", "defer");
         script.setAttribute("async", "async");
         document.body.appendChild(script);
@@ -94,6 +103,15 @@ html, body {
             streetViewControl : false,
             rotateControl : false,
         });
+
+        if (g_map) {
+            console.info(msgQueue.length,
+                    "msgs in queue, map loaded, processing...");
+            while (msgQueue.length > 0) {
+                msg = msgQueue.shift();
+                processMessage(msg);
+            }
+        }
     }
 
     function getIsdColor(isd) {
@@ -407,12 +425,16 @@ html, body {
         if (!appWindow || !appOrigin) {
             appWindow = event.source;
             appOrigin = event.origin;
-            console.log('Opened communication with SCION Viz app.');
+            console.log('Opened communication with SCION Viz app at '
+                    + appOrigin);
         }
-        console.log('Received message:', JSON.stringify(event.data));
+        console.log('Received message:', event.data.command);
         if (g_map) {
             processMessage(event);
         } else {
+            if (event.data.command.hasOwnProperty('initMap')) {
+                loadScript(event.data.command.initMap.mapsjs_apikey);
+            }
             cacheMessage(event);
         }
     }
@@ -421,22 +443,17 @@ html, body {
      * Before map apis are loaded, cache messages and reprocess when map loads.
      **/
     function cacheMessage(event) {
-        console.warn("map message waiting", msgCacheIntervalMs, "ms");
-        setTimeout(function() {
-            if (g_map) {
-                processMessage(event);
-            } else {
-                cacheMessage(event);
-            }
-        }, msgCacheIntervalMs);
+        console.warn('Caching message:', event.data.command);
+        msgQueue.push(event);
     }
 
     /**
      * When map apis are loaded, here we add the requested map details.
      **/
     function processMessage(event) {
+        console.log('Processing message:', JSON.stringify(event.data));
         if (event.data.command.hasOwnProperty('initMap')) {
-            isds = event.data.command.initMap;
+            isds = event.data.command.initMap.isds;
             isds.sort(compareNumbers);
             setLegend();
         } else if (event.data.command.hasOwnProperty('updateMapAsMarkers')) {
@@ -451,14 +468,6 @@ html, body {
             labelAsMarkers(event.data.command.updateMapAsLabels);
         }
     }
-
-    window.addEventListener('message', receiveMessage);
-
-    window.onload = function() {
-        if (!g_map) {
-            loadScript();
-        }
-    };
 </script>
 </head>
 <body>

@@ -23,26 +23,17 @@ var wv_map = null;
  * @param isds
  *            A numeric array of ISD numbers used to render the map legend.
  */
-function initGMap(isds) {
-    wv_map = document.getElementById('g-map');
-    console.log('got iframe:', wv_map);
-
-    wv_map.addEventListener("loadstart", function() {
-        console.debug("iframe loading...");
-    });
-    wv_map.addEventListener("contentload", function() {
-        console.debug("iframe content load done");
-    });
-    wv_map.addEventListener("loadstop", function() {
-        console.debug("iframe loading stopped");
-    });
-
+function initGMap(isds, mapsjs_apikey) {
     if (wv_map) {
+        console.info("Sending message initMap...");
         wv_map.contentWindow.postMessage({
             command : {
-                initMap : isds
+                initMap : {
+                    isds : isds,
+                    mapsjs_apikey : mapsjs_apikey
+                }
             }
-        }, "*");
+        }, location.origin);
     }
 }
 
@@ -61,11 +52,12 @@ function updateGMapAsLinks(res, path, color) {
             routes = getPathSelectedLinks(res, path, color);
         }
         // update selected path
+        console.info("Sending message updateMapAsLinksPath...");
         wv_map.contentWindow.postMessage({
             command : {
                 updateMapAsLinksPath : routes
             }
-        }, "*");
+        }, location.origin);
     }
 }
 
@@ -73,11 +65,12 @@ function updateGMapAsLinksAll() {
     if (wv_map) {
         var all = getTopologyLinksAll();
         // update all paths
+        console.info("Sending message updateMapAsLinksAll...");
         wv_map.contentWindow.postMessage({
             command : {
                 updateMapAsLinksAll : all
             }
-        }, "*");
+        }, location.origin);
     }
 }
 
@@ -89,11 +82,12 @@ function updateGMapAsLinksAll() {
 function updateGMapAsMarkers(src, dst) {
     var loc = getMarkerLocations(src, dst);
     if (wv_map) {
+        console.info("Sending message updateMapAsMarkers...");
         wv_map.contentWindow.postMessage({
             command : {
                 updateMapAsMarkers : loc
             }
-        }, "*");
+        }, location.origin);
     }
 }
 
@@ -117,11 +111,12 @@ function updateGMapIsdRegions(isds) {
         }
     }
     if (wv_map) {
+        console.info("Sending message updateMapIsdRegions...");
         wv_map.contentWindow.postMessage({
             command : {
                 updateMapIsdRegions : countries
             }
-        }, "*");
+        }, location.origin);
     }
 }
 
@@ -131,10 +126,11 @@ function updateGMapAsLabels(useName, useNumber) {
         useNumber : useNumber
     };
     if (wv_map) {
+        console.info("Sending message updateMapAsLabels...");
         wv_map.contentWindow.postMessage({
             command : {
                 updateMapAsLabels : prop
             }
-        }, "*");
+        }, location.origin);
     }
 }

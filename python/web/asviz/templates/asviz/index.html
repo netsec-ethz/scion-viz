@@ -196,6 +196,7 @@
     var iaLocations = [];
     var activeTab = null;
     var d = {};
+    var NET_TIMEOUT_MS = 15000;
 
     $(document).ready(function() {
         var paths = JSON.parse('{{ json_paths | safe }}');
@@ -235,13 +236,30 @@
         $('input[type=radio][name=radioPaths]').change(function() {
             handleMapTopologySwitch();
         });
+
+        ajaxConfig(d);
+    });
+
+    function isConfigComplete(data, textStatus, jqXHR) {
+        console.log(JSON.stringify(data));
+        d['nodes_xml_url'] = data.nodes_xml_url;
+        d['labels_json_url'] = data.labels_json_url;
+        d['google_mapsjs_apikey'] = data.google_mapsjs_apikey;
+        d['google_geolocation_apikey'] = data.google_geolocation_apikey;
+
         // request labels/locations and wait to call view until done
-        $.when(ajaxLabels(d), ajaxLocations(d)).done(function(aLbls, aLocs) {
+        $.when(ajaxLabels({
+            debug : d.debug,
+            labels_json_url : d.labels_json_url,
+        }), ajaxLocations({
+            debug : d.debug,
+            nodes_xml_url : d.nodes_xml_url,
+        })).done(function(aLbls, aLocs) {
             isLabelsComplete(aLbls[0], aLbls[1], aLbls[2]);
             isLocationsComplete(aLocs[0], aLocs[1], aLocs[2]);
             loadPathData('{{ err }}');
         });
-    });
+    }
 
     /*
      * If labels are found, translate to new AS numbering if needed.
@@ -255,36 +273,56 @@
         $('#div_as_numbers').css("display", true ? "inline-block" : "none");
     }
 
-    function ajaxLabels(data) {
+    function ajaxConfig(data) {
         return $.ajax({
-            url : 'labels',
+            url : 'config/',
             type : 'get',
             dataType : "json",
-            timeout : 5000,
+            success : isConfigComplete,
+            error : function(jqXHR, textStatus, errorThrown) {
+                showError(this.url + ' ' + textStatus + ': ' + errorThrown);
+            },
+            timeout : NET_TIMEOUT_MS,
+            data : data,
+        });
+    }
+
+    function ajaxLabels(data) {
+        return $.ajax({
+            url : 'labels/',
+            type : 'get',
+            dataType : "json",
+            error : function(jqXHR, textStatus, errorThrown) {
+                showError(this.url + ' ' + textStatus + ': ' + errorThrown);
+            },
+            timeout : NET_TIMEOUT_MS,
             data : data,
         });
     }
 
     function ajaxLocations(data) {
         return $.ajax({
-            url : 'locations',
+            url : 'locations/',
             type : 'get',
             dataType : "xml",
-            timeout : 5000,
+            error : function(jqXHR, textStatus, errorThrown) {
+                showError(this.url + ' ' + textStatus + ': ' + errorThrown);
+            },
+            timeout : NET_TIMEOUT_MS,
             data : data,
         });
     }
 
     function ajaxGeoLocate(data) {
         return $.ajax({
-            url : 'geolocate',
+            url : 'geolocate/',
             type : 'get',
             dataType : "json",
             success : isGeolocateComplete,
             error : function(jqXHR, textStatus, errorThrown) {
-                console.log(textStatus, errorThrown)
+                showError(this.url + ' ' + textStatus + ': ' + errorThrown);
             },
-            timeout : 5000,
+            timeout : NET_TIMEOUT_MS,
             data : data,
         });
     }
@@ -294,9 +332,6 @@
         var local = data.location;
         // get potential locations
         drawMap('{{ src }}', '{{ dst }}', local);
-        handleAsLabelSwitch();
-        var open = typeof self.segType !== 'undefined';
-        setPaths(self.segType, self.segNum, open);
     }
 
     function drawMap(src, dst, local) {
@@ -353,15 +388,63 @@
             }
         }
 
-        initGMap(isds);
+        var wait = setInterval(function() {
+            console.warn('waited 500ms');
+            wv_map = document.getElementById('g-map');
+            console.log('got iframe:', wv_map);
+            if (wv_map.contentWindow) {
+                clearInterval(wait);
+                initGMap(isds, d.google_mapsjs_apikey);
 
-        // setup map with known markers and links
-        updateGMapAsMarkers(src, dst);
-        updateGMapAsLinksAll();
+                // setup map with known markers
+                updateGMapAsMarkers(src, dst);
 
-        var cbName = $('#switch_as_names').prop('checked');
-        var cbNumber = $('#switch_as_numbers').prop('checked');
-        updateGMapAsLabels(cbName, cbNumber);
+                // don't add links since it gets too messy.
+                // to restore all possible links uncomment the next line
+                // updateGMapAsLinksAll();
+
+                var cbName = $('#switch_as_names').prop('checked');
+                var cbNumber = $('#switch_as_numbers').prop('checked');
+                updateGMapAsLabels(cbName, cbNumber);
+
+                handleAsLabelSwitch();
+                var open = typeof self.segType !== 'undefined';
+                setPaths(self.segType, self.segNum, open);
+            }
+        }, 500);
+    }
+
+    /*
+     * Marks missing locations in paths dropdown tree list.
+     */
+    function highlightNoGeoCode(src) {
+        var ourIAs = [];
+        for (var p = 0; p < resPath.if_lists.length; p++) {
+            for (var i = 0; i < resPath.if_lists[p].interfaces.length; i++) {
+                var ia = resPath.if_lists[p].interfaces[i];
+                var isdas = ia.ISD + '-' + ia.AS;
+                if (!ourIAs.includes(isdas)) {
+                    ourIAs.push(isdas);
+                }
+            }
+        }
+
+        var geoLocIAs = [];
+        $.grep(iaLocations, function(e, i) {
+            geoLocIAs.push(e.ia);
+        });
+        geoLocIAs.push(src); // our src IA is geolocatable
+        var notGeoLocIAs = $.grep(ourIAs, function(el) {
+            return $.inArray(el, geoLocIAs) == -1
+        });
+        notGeoLocIAs.forEach(function(ia) {
+            dt = "data-toggle='tooltip'";
+            t = "title='" + ia + " unknown map location'";
+            str = "<b " + dt + " " + t + ">" + ia + "*</b>";
+            $("#as-iflist li:contains(" + ia + ")").html(function(_, html) {
+                return html.split(ia).join(str);
+            });
+        });
     }
 
     /*
@@ -422,7 +505,10 @@
             if ($("#as-pathtopo").children("iframe").length == 0) {
                 $("#as-pathtopo").append(htmlGMap);
                 // geolocate current position
-                ajaxGeoLocate(d);
+                ajaxGeoLocate({
+                    debug : d.debug,
+                    google_geolocation_apikey : d.google_geolocation_apikey,
+                });
             } else {
                 $("#as-pathtopo").children("iframe").show();
                 handleAsLabelSwitch();
@@ -449,10 +535,15 @@
         }
     }
 
+    function showError(err) {
+        console.error(err);
+        $("#as-error").html(err);
+        $("#as-error").css('color', 'red');
+    }
+
     function loadPathData(err) {
         if (err && err != '') {
-            $("#as-error").html(err);
-            $("#as-error").css('color', 'red');
+            showError(err);
         }
         resSegs = JSON.parse('{{ json_seg_topo | safe }}');
         resCore = resSegs.core_segments;
@@ -466,6 +557,11 @@
         orderPaths('{{ src }}', '{{ dst }}');
 
         setupPathSelection();
+
+        // update path interfaces with a note when geocode missing
+        highlightNoGeoCode('{{ src }}');
+
+        // setup tree now that we've modified it
         setupListTree();
 
         // load path topology

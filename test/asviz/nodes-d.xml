@@ -1,14 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <nodes>
- <node ia="1-ff00:0:110" host="OLD 1-11 GB" lat="54.0000" long="-2.0000" />
+  <node ia="1-ff00:0:110" host="OLD 1-11 GB" lat="54.0000" long="-2.0000" />
  <node ia="1-ff00:0:120" host="OLD 1-12 CH {0}" lat="47.0000" long="8.0000" />
  <node ia="1-ff00:0:120" host="OLD 1-12 CH {1}" lat="47.1000" long="8.1000" />
  <node ia="1-ff00:0:120" host="OLD 1-12 CH {2}" lat="47.2000" long="8.2000" />
  <node ia="1-ff00:0:130" host="OLD 1-13 DE {0}" lat="51.0000" long="9.0000" />
  <node ia="1-ff00:0:130" host="OLD 1-13 DE {1}" lat="51.1000" long="9.1000" />
+ <!-- Remove at least one location to test cases for nodes that are not geolocated:
  <node ia="1-ff00:0:111" host="OLD 1-14 PL {0}" lat="52.0000" long="20.0000" />
  <node ia="1-ff00:0:111" host="OLD 1-14 PL {1}" lat="52.1000" long="20.1000" />
- <node ia="1-ff00:0:111" host="OLD 1-14 PL {2}" lat="52.2000" long="20.2000" />
+ <node ia="1-ff00:0:111" host="OLD 1-14 PL {2}" lat="52.2000" long="20.2000" /> -->
  <node ia="1-ff00:0:112" host="OLD 1-17 IT" lat="42.8333" long="12.8333" />
  <node ia="1-ff00:0:121" host="OLD 1-15 UA" lat="49.0000" long="32.0000" />
  <node ia="1-ff00:0:122" host="OLD 1-18 TR" lat="39.0000" long="35.0000" />
