@@ -20,6 +20,7 @@ import subprocess
 import time
 from datetime import datetime
 import pathlib
+from django.http import HttpResponse
 from django.shortcuts import render
 
 import lib.app.sciond as lib_sciond
@@ -851,3 +852,10 @@ def fmt_err(request, params):
     params['json_as_topo'] = '{"links": [], "nodes": []}'
     params['path_info'] = ''
     return render(request, 'asviz/index.html', params)
+
+
+def hosttime(request):
+    ts = time.time() * 1000
+    json_ts = '{"hosttime_ms": %s}' % ts
+    resp = HttpResponse(json_ts, content_type="text/json; charset=utf-8")
+    return resp
