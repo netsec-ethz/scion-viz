@@ -83,6 +83,7 @@
     </div>
 
     <div id='as-error'></div>
+    <div id='as-skew'></div>
 
     <div id='as-graphs'>
 
@@ -194,11 +195,16 @@
     var resSegs, resCore, resUp, resDown, resPath, jTopo, json_as_topo;
     var iaLabels;
     var iaLocations = [];
+    var skewAlertThreshholdMs = 15000; // warn after 15s skew
+    var skewCheckIntervalMs = 1000; // initial check
     var activeTab = null;
     var d = {};
     var NET_TIMEOUT_MS = 15000;
 
     $(document).ready(function() {
+        // test for accurate time between server/browser
+        checkHostTime();
+
         var paths = JSON.parse('{{ json_paths | safe }}');
         for (var p = 0; p < paths.if_lists.length; p++) {
             for (var i = 0; i < paths.if_lists[p].interfaces.length; i++) {
@@ -539,6 +545,57 @@
         console.error(err);
         $("#as-error").html(err);
         $("#as-error").css('color', 'red');
+    }
+
+    function checkHostTime() {
+        // exponential backoff
+        setTimeout(function() {
+            ajaxGetHostTime();
+        }, skewCheckIntervalMs);
+        skewCheckIntervalMs = skewCheckIntervalMs * 2;
+    }
+
+    function ajaxGetHostTime() {
+        var reqtime = Date.now();
+        return $.ajax({
+            url : 'hosttime',
+            type : 'get',
+            dataType : "json",
+            success : function(data, textStatus, jqXHR) {
+                hostTimeSuccess(data, reqtime);
+            },
+            error : function(jqXHR, textStatus, errorThrown) {
+                console.error(textStatus, errorThrown);
+            },
+            // chain again after expanded timeout
+            complete : checkHostTime,
+        });
+    }
+
+    function hostTimeSuccess(data, reqtime) {
+        // latency is critical, measure it first
+        var act_localtime = Date.now();
+        var latency = act_localtime - reqtime;
+        var est_hosttime = data.hosttime_ms + (latency / 2);
+        var skew = act_localtime - est_hosttime;
+        var skewtxt = "Web server host is " + Math.abs(skew / 1000).toFixed(1)
+                + "s " + (skew < 0 ? "ahead of" : "behind") + " browser host. "
+                + "Please check the accuracy of both clocks.";
+        if (Math.abs(skew) > skewAlertThreshholdMs) {
+            // clock skew is over threshold, warn user
+            $("#as-skew").html(skewtxt);
+            $("#as-skew").css('color', 'red');
+            // reset interval to avoid load anomilies
+            skewCheckIntervalMs = 5000;
+            console.error(skewtxt);
+        } else {
+            $("#as-skew").html(''); // clear err
+        }
+        console.log(JSON.stringify(data));
+        var logtxt = "clock skew " + skew.toFixed(0) + "ms, latency "
+                + latency.toFixed(0) + "ms, next check in "
+                + (skewCheckIntervalMs / 1000) + "s";
+        console.log(logtxt);
     }
 
     function loadPathData(err) {

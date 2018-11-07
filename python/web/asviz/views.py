@@ -861,6 +861,13 @@ def fmt_err(request, params):
     return render(request, 'asviz/index.html', params)
 
 
+def hosttime(request):
+    ts = time.time() * 1000
+    json_ts = '{"hosttime_ms": %s}' % ts
+    resp = HttpResponse(json_ts, content_type="text/json; charset=utf-8")
+    return resp
+
+
 def config(request):
     projectId = 'my-project-1470640410708'
     configUrl = 'https://%s.appspot.com/getconfig' % projectId
