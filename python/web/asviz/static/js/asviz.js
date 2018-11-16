@@ -59,47 +59,70 @@ function setupPathSelection() {
     $("#as-iflist > ul > li").click(function() {
         var type = $(this).attr("seg-type");
         var idx = parseInt($(this).attr("seg-num"));
-        if (this.className == "open") {
-            console.log(type + idx + ' opened');
-            var num = idx + 1;
-            if (type == 'CORE') {
-                addSegments(resCore, idx, num, colorSegCore, type);
-            } else if (type == 'DOWN') {
-                addSegments(resDown, idx, num, colorSegDown, type);
-            } else if (type == 'UP') {
-                addSegments(resUp, idx, num, colorSegUp, type);
-            } else if (type == 'PATH') {
-                addPaths(resPath, idx, num, colorPaths, type);
-            }
-        } else {
-            console.log(type + idx + ' closed');
-            removePaths();
-        }
+        setPaths(type, idx, this.className == "open");
     });
+}
+
+function setPaths(type, idx, open) {
+    if (open) {
+        console.log(type + idx + ' opened');
+        var num = idx + 1;
+        if (type == 'CORE') {
+            addSegments(resCore, idx, num, colorSegCore, type);
+        } else if (type == 'DOWN') {
+            addSegments(resDown, idx, num, colorSegDown, type);
+        } else if (type == 'UP') {
+            addSegments(resUp, idx, num, colorSegUp, type);
+        } else if (type == 'PATH') {
+            addPaths(resPath, idx, num, colorPaths, type);
+        }
+        self.segType = type;
+        self.segNum = idx;
+    } else {
+        console.log(type + idx + ' closed');
+        removePaths();
+        self.segType = undefined;
+        self.segNum = undefined;
+    }
 }
 
 /*
  * Adds D3 forwarding path links with arrows and a title to paths graph.
  */
 function addPaths(res, idx, num, color, type) {
-    drawPath(res, idx, color);
-    drawTitle(type + ' ' + num, color);
+    if (graphPath) {
+        drawPath(res, idx, color);
+        drawTitle(type + ' ' + num, color);
+    }
+    if (wv_map) {
+        updateGMapAsLinks(res, idx, color);
+    }
 }
 
 /*
  * Adds D3 segment links with arrows, title, and timer to paths graph.
  */
 function addSegments(res, idx, num, color, type) {
-    drawPath(res, idx, color);
-    drawTitle(type + ' SEGMENT ' + num, color, res.if_lists[idx].expTime);
+    if (graphPath) {
+        drawPath(res, idx, color);
+        drawTitle(type + ' SEGMENT ' + num, color, res.if_lists[idx].expTime);
+    }
+    if (wv_map) {
+        updateGMapAsLinks(res, idx, color);
+    }
 }
 
 /*
  * Removes D3 path links, title, and timer from paths graph.
  */
 function removePaths() {
-    restorePath();
-    removeTitle();
+    if (graphPath) {
+        restorePath();
+        removeTitle();
+    }
+    if (wv_map) {
+        updateGMapAsLinks();
+    }
 }
 
 /*
@@ -191,8 +214,8 @@ function isCoreInverted(csegs, usegs) {
 }
 
 /*
- * Handle open and close of data tree suggested by J. Slegers at
- * stackoverflow.com/a/36297526
+ * Handle open and close of data tree suggested by stackoverflow.com/a/38765843
+ * and stackoverflow.com/a/38765843.
  */
 function setupListTree() {
     var tree = document.querySelectorAll('ul.tree a:not(:last-child)');
@@ -200,13 +223,17 @@ function setupListTree() {
         tree[i].addEventListener('click', function(e) {
             var parent = e.target.parentElement;
             var classList = parent.classList;
-            if (classList.contains("open")) {
-                classList.remove('open');
-                var opensubs = parent.querySelectorAll(':scope .open');
+            var closeAllOpenSiblings = function() {
+                // MWF: ':scope .open' fails in MS IE/Edge, removed ':scope'
+                var opensubs = parent.parentElement.querySelectorAll('.open');
                 for (var i = 0; i < opensubs.length; i++) {
                     opensubs[i].classList.remove('open');
                 }
+            }
+            if (classList.contains("open")) {
+                classList.remove('open');
             } else {
+                closeAllOpenSiblings();
                 classList.add('open');
             }
         });

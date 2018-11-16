@@ -21,4 +21,8 @@ urlpatterns = [
     url(r'^asviz/', include('asviz.urls', namespace="asviz")),
     url(r'^$', include('asviz.urls', namespace="asviz")),
     url(r'^hosttime/', 'asviz.views.hosttime'),
+    url(r'^config/', 'asviz.views.config'),
+    url(r'^labels/', 'asviz.views.labels'),
+    url(r'^locations/', 'asviz.views.locations'),
+    url(r'^geolocate/', 'asviz.views.geolocate'),
 ]

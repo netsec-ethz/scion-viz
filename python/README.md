@@ -22,3 +22,13 @@ To run Django web UI at default localhost 127.0.0.1:8000 use:
     ```
     python3 python/web/manage.py runserver
     ```
+
+# SCION Visualization Admin Tool
+
+This App Engine project to manage visualization URLs and third-party APIs in use
+can be found at: https://my-project-1470640410708.appspot.com.
+
+You must be granted access to use the site in order to add, modify, or delete.
+
+If you need to delete anything from the table, it can be done through the cloud
+console: https://console.cloud.google.com/datastore/entities/query
