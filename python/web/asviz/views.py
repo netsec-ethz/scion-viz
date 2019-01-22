@@ -812,10 +812,8 @@ def index(request):
                     usegs = lib_sciond.get_segtype_hops(
                         PST.UP, connector=connector[s_isd_as])
                     # refresh old segments for next call
-                    flags = lib_sciond.PathRequestFlags(flush=True,
-                                                        sibra=False)
                     lib_sciond.get_paths(d_isd_as, max_paths=int(
-                        p['mp']), flags=flags, connector=connector[s_isd_as])
+                        p['mp']), connector=connector[s_isd_as])
                 except (SCIONDResponseError, SCIONDConnectionError,
                         AttributeError) as err:
                     # AttributeError handles backward-compatability
