@@ -803,10 +803,8 @@ def index(request):
             if (p['dst'] != ''):  # PATHS
                 try:
                     # get paths and keep segments
-                    flags = lib_sciond.PathRequestFlags(flush=False,
-                                                        sibra=False)
                     paths = lib_sciond.get_paths(d_isd_as, max_paths=int(
-                        p['mp']), flags=flags, connector=connector[s_isd_as])
+                        p['mp']), connector=connector[s_isd_as])
                     csegs = lib_sciond.get_segtype_hops(
                         PST.CORE, connector=connector[s_isd_as])
                     dsegs = lib_sciond.get_segtype_hops(
