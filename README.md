@@ -1,3 +1,9 @@
+## :warning: Discontinued  ##
+The functionality of scion-viz is being integrated in the "web-app" in the [netsec-ethz/scion-apps](https://github.com/netsec-ethz/scion-apps) repository.
+Only minimal maintenance work will be done here. The repository will eventually be removed/archived.
+
+
+
 SCION Visualization
 =====
 
