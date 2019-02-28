@@ -225,10 +225,9 @@ def print_paths(s_isd_as, d_isd_as, connector):
     Print AS announced paths data from lib.app.sciond.
     :param paths: Array of PathInfo objects.
     '''
-    flags = lib_sciond.PathRequestFlags(flush=False, sibra=False)
     try:
         paths = lib_sciond.get_paths(
-            d_isd_as, flags=flags, connector=connector[s_isd_as])
+            d_isd_as, connector=connector[s_isd_as])
     except (SCIONDResponseError) as err:
         logging.error("%s: %s" % (err.__class__.__name__, err))
         return
