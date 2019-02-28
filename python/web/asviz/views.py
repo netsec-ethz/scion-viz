@@ -287,17 +287,16 @@ def get_json_as_topology(t, topo):
     for servers in topo:
         idx = 1
         for v in topo[servers]:
-            logging.info(v)
             if servers in topo_servers:
-                addr = v.public[0][0]
-                port = v.public[0][1]
+                addr = v.public[0]
+                port = v.public[1]
                 nodes, links = json_append_server(
                     nodes, links, isd_as, v.name, servers, addr, port)
             elif servers in topo_br:
                 logging.info(v.interfaces)
                 interface = list(v.interfaces.values())[0]
-                addr = v.int_addrs[0].public[0][0]
-                port = v.int_addrs[0].public[0][1]
+                addr = v.int_addrs.public[0]
+                port = v.int_addrs.public[1]
                 link_type = interface.link_type
                 ifID = interface.if_id
                 nodes, links = json_append_router(
@@ -426,10 +425,10 @@ def get_json_interface_node(i):
         "type": "interface",
         "icon": get_service_type_name("ISD_AS"),
         "group": get_grouping_index("ISD-AS"),
-        "public addr": str(HostAddrIPv4(i.public[0][0])),
-        "public port": i.public[0][1],
-        "remote addr": str(HostAddrIPv4(i.remote[0][0])),
-        "remote port": i.remote[0][1],
+        "public addr": str(HostAddrIPv4(i.public[0])),
+        "public port": i.public[1],
+        "remote addr": str(HostAddrIPv4(i.remote[0])),
+        "remote port": i.remote[1],
         "link_type": i.link_type,
         "bandwidth": i.bandwidth,
         "mtu": i.mtu,
